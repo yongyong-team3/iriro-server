@@ -9,3 +9,8 @@ spring:
       ddl-auto: none
   flyway:
     enabled: false
+iriro:
+  auth:
+    jwt-secret: test-only-signing-key-not-for-any-real-environment-123456
+    access-token-ttl-seconds: 900
+    refresh-token-ttl-seconds: 2592000

@@ -26,3 +26,9 @@ management:
 integrations:
   ai:
     base-url: ${AI_SERVER_URL:http://localhost:8000}
+
+iriro:
+  auth:
+    jwt-secret: ${AUTH_JWT_SECRET:}
+    access-token-ttl-seconds: ${AUTH_ACCESS_TOKEN_TTL_SECONDS:900}
+    refresh-token-ttl-seconds: ${AUTH_REFRESH_TOKEN_TTL_SECONDS:2592000}
