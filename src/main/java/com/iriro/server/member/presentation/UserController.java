@@ -4,12 +4,10 @@ import com.iriro.server.common.ApiResponse;
 import com.iriro.server.member.application.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "User API", description = "회원 관련 API")
 @RestController
@@ -28,5 +26,15 @@ public class UserController {
     ) {
         MyInfoResponse responseData = userService.getMyInfo(currentMemberId);
         return ResponseEntity.ok(ApiResponse.success("조회되었습니다.", responseData));
+    }
+
+    @Operation(summary = "프로필 수정", description = "내 닉네임을 변경합니다. (임시: 인증 없음)")
+    @PatchMapping("/me")
+    public ResponseEntity<ApiResponse<UpdateProfileResponse>> updateProfile(
+            @Valid @RequestBody UpdateProfileRequest request,
+            @RequestParam(value = "memberId", defaultValue = "1") Long currentMemberId
+    ) {
+        UpdateProfileResponse responseData = userService.updateProfile(currentMemberId, request);
+        return ResponseEntity.ok(ApiResponse.success("프로필이 수정되었습니다.", responseData));
     }
 }

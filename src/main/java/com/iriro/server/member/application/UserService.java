@@ -9,6 +9,8 @@ import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.EmailCredentialRepository;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import com.iriro.server.member.presentation.MyInfoResponse;
+import com.iriro.server.member.presentation.UpdateProfileRequest;
+import com.iriro.server.member.presentation.UpdateProfileResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,5 +53,29 @@ public class UserService {
                 earnedBadgeCount,
                 unreadNotificationCount
         );
+    }
+
+    /**
+     * 내 프로필 정보 수정 (닉네임 변경)
+     */
+    @Transactional
+    public UpdateProfileResponse updateProfile(Long memberId, UpdateProfileRequest request) {
+        // 1. 회원 존재 여부 확인
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED_USER));
+
+        String newMemberName = request.getMemberName();
+        String newMemberNameKey = newMemberName.toLowerCase();
+
+        // 2. 닉네임 중복 재검사 (본인 제외 타 회원이 동일 키를 사용 중인 경우 409 DUPLICATE_MEMBER_NAME)
+        if (memberRepository.existsByMemberNameKeyAndIdNot(newMemberNameKey, memberId)) {
+            throw new CustomException(ErrorCode.DUPLICATE_MEMBER_NAME);
+        }
+
+        // 3. 엔티티 수정 (JPA Dirty Checking으로 자동 update)
+        member.updateMemberName(newMemberName);
+
+        // 4. 응답 DTO 변환 및 반환
+        return UpdateProfileResponse.from(member);
     }
 }

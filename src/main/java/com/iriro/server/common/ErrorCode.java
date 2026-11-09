@@ -18,7 +18,11 @@ public enum ErrorCode {
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER_NOT_FOUND", "존재하지 않는 회원입니다."),
 
     // Common
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SERVER_ERROR", "서버 내부 오류가 발생했습니다.");
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SERVER_ERROR", "서버 내부 오류가 발생했습니다."),
+
+    // Auth & User Validation
+    INVALID_MEMBER_NAME(HttpStatus.BAD_REQUEST, "INVALID_MEMBER_NAME", "닉네임 형식을 확인해 주세요."),
+    DUPLICATE_MEMBER_NAME(HttpStatus.CONFLICT, "DUPLICATE_MEMBER_NAME", "이미 사용 중인 닉네임입니다.");
 
     private final HttpStatus status;
     private final String code;
