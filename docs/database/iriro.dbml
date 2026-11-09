@@ -1,0 +1,195 @@
+Project iriro {
+  database_type: 'MySQL'
+  Note: 'MariaDB 11.4 / InnoDB. DATETIME values are stored in UTC. GeoJSON and GPS JSON are validated by the API.'
+}
+
+Table members {
+  id bigint [pk, increment]
+  member_name varchar(12)
+  member_name_key varchar(12) [unique, note: 'ASCII letters lowercased; NULL until nickname is set']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table email_credentials {
+  member_id bigint [pk, ref: - members.id]
+  email_normalized varchar(254) [not null, unique]
+  password_hash varchar(255) [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table social_accounts {
+  id bigint [pk, increment]
+  member_id bigint [not null, ref: > members.id]
+  provider varchar(16) [not null, note: 'KAKAO, NAVER']
+  provider_user_id varchar(255) [not null]
+  created_at datetime [not null]
+  indexes {
+    (provider, provider_user_id) [unique]
+    (member_id, provider) [unique]
+  }
+}
+
+Table refresh_sessions {
+  id bigint [pk, increment]
+  member_id bigint [not null, ref: > members.id]
+  token_hash char(64) [not null, unique]
+  expires_at datetime [not null]
+  revoked_at datetime
+  created_at datetime [not null]
+  indexes {
+    (member_id, expires_at)
+  }
+}
+
+Table trails {
+  id bigint [pk, increment]
+  name varchar(120) [not null]
+  section_name varchar(120)
+  description text
+  center_latitude decimal(9,6) [not null]
+  center_longitude decimal(9,6) [not null]
+  length_meters decimal(10,2) [not null]
+  geometry_geojson longtext [not null]
+  water_station_code varchar(32)
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table routes {
+  id bigint [pk, increment]
+  trail_id bigint [not null, ref: > trails.id]
+  name varchar(120) [not null]
+  distance_meters decimal(10,2) [not null]
+  estimated_duration_seconds int [not null]
+  geometry_geojson longtext [not null]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  indexes {
+    trail_id
+  }
+}
+
+Table route_activity_types {
+  route_id bigint [not null, ref: > routes.id]
+  activity_type varchar(12) [not null, note: 'WALK, RUN, BIKE']
+  indexes {
+    (route_id, activity_type) [pk]
+  }
+}
+
+Table route_start_points {
+  id bigint [pk, increment]
+  route_id bigint [not null, ref: > routes.id]
+  name varchar(120) [not null]
+  latitude decimal(9,6) [not null]
+  longitude decimal(9,6) [not null]
+  indexes {
+    (route_id, id) [unique]
+  }
+}
+
+Table detours {
+  id bigint [pk, increment]
+  route_id bigint [not null, ref: > routes.id]
+  name varchar(120) [not null]
+  distance_meters decimal(10,2) [not null]
+  extra_distance_meters decimal(10,2) [not null]
+  geometry_geojson longtext [not null]
+  indexes {
+    (route_id, id) [unique]
+  }
+}
+
+Table activities {
+  id bigint [pk, increment]
+  member_id bigint [not null, ref: > members.id]
+  route_id bigint [not null, ref: > routes.id]
+  start_point_id bigint [not null]
+  detour_id bigint [note: 'NULL for the original route']
+  activity_type varchar(12) [not null]
+  started_at datetime [not null]
+  ended_at datetime [not null]
+  elapsed_seconds int [not null]
+  distance_meters decimal(10,2) [not null]
+  track_points_json longtext [not null]
+  idempotency_key varchar(64) [not null]
+  request_hash char(64) [not null]
+  created_at datetime [not null]
+  indexes {
+    (member_id, idempotency_key) [unique]
+    (member_id, started_at)
+    (route_id, start_point_id)
+    (route_id, activity_type)
+    (route_id, detour_id)
+  }
+}
+
+Ref: activities.(route_id, start_point_id) > route_start_points.(route_id, id)
+Ref: activities.(route_id, activity_type) > route_activity_types.(route_id, activity_type)
+Ref: activities.(route_id, detour_id) > detours.(route_id, id)
+
+Table favorites {
+  id bigint [pk, increment]
+  member_id bigint [not null, ref: > members.id]
+  route_id bigint [not null, ref: > routes.id]
+  created_at datetime [not null]
+  indexes {
+    (member_id, route_id) [unique]
+  }
+}
+
+Table notification_settings {
+  member_id bigint [pk, ref: - members.id]
+  recovery_forecast_enabled boolean [not null, default: false]
+  updated_at datetime [not null]
+}
+
+Table devices {
+  id bigint [pk, increment]
+  member_id bigint [not null, ref: > members.id]
+  installation_id char(36) [not null, unique]
+  platform varchar(12) [not null, note: 'IOS, ANDROID']
+  expo_push_token varchar(255)
+  created_at datetime [not null]
+  updated_at datetime [not null]
+  indexes {
+    member_id
+  }
+}
+
+Table recovery_events {
+  id bigint [pk, increment]
+  trail_id bigint [not null, ref: > trails.id]
+  started_at datetime [not null]
+  first_notified_at datetime
+  ended_at datetime
+  indexes {
+    (trail_id, started_at) [unique]
+  }
+}
+
+Table notifications {
+  id bigint [pk, increment]
+  member_id bigint [not null, ref: > members.id]
+  event_id bigint [ref: >? recovery_events.id, note: 'NULL for non-recovery notifications']
+  type varchar(32) [not null]
+  title varchar(160) [not null]
+  body text [not null]
+  created_at datetime [not null]
+  read_at datetime
+  indexes {
+    (event_id, member_id) [unique]
+    (member_id, created_at)
+  }
+}
+
+Table badge_awards {
+  member_id bigint [not null, ref: > members.id]
+  badge_code varchar(32) [not null]
+  earned_at datetime [not null]
+  indexes {
+    (member_id, badge_code) [pk]
+  }
+}

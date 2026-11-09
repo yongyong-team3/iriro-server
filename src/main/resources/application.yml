@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: iriro-server
+  datasource:
+    url: ${DB_URL:jdbc:mariadb://localhost:3306/iriro}
+    username: ${DB_USERNAME:iriro}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+integrations:
+  ai:
+    base-url: ${AI_SERVER_URL:http://localhost:8000}
