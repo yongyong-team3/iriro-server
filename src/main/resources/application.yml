@@ -1,6 +1,8 @@
 spring:
   application:
     name: iriro-server
+  config:
+    import: "optional:file:./.env[.properties]"
   datasource:
     url: ${DB_URL:jdbc:mariadb://localhost:3306/iriro}
     username: ${DB_USERNAME:iriro}

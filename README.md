@@ -1,15 +1,23 @@
 # 이리로 API 서버 (`iriro-server`)
 
-Java 21 · Spring Boot 4.1.2 · Gradle Wrapper 9.8.2 · MariaDB 11.4. 모바일 앱과 AI 서버 사이의 API, 계정, 코스, 활동 기록을 담당합니다.
+Java 21 · Spring Boot 4.1.2 · Gradle Wrapper 9.8.2 · MariaDB 11.2. 모바일 앱과 AI 서버 사이의 API, 계정, 코스, 활동 기록을 담당합니다.
 
 ## 시작
 
-1. MariaDB에 `iriro` 데이터베이스와 개발용 계정을 만듭니다.
-2. `.env.example`을 참고해 IntelliJ 실행 구성의 환경 변수에 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 입력합니다. Spring Boot는 `.env` 파일을 자동으로 읽지 않습니다.
+1. 저장소 루트에서 `.env.example`을 `.env`로 복사하고, 전달받은 DB 사용자명과 비밀번호를 입력합니다. `.env`는 Git에 올리지 않습니다.
+2. Spring Boot는 저장소 루트의 `.env`를 실행할 때 자동으로 읽습니다.
 3. IntelliJ에서 이 폴더를 Gradle 프로젝트로 열고 JDK 21을 선택합니다.
 4. `./gradlew test`로 확인한 뒤 `./gradlew bootRun`으로 실행합니다.
 
 상태 확인: `GET /actuator/health`. API 기본 경로: `/api/v1`.
+
+### Cloudtype DB 연결
+
+- DB 이름: `iriro`
+- 로컬 실행용 `DB_URL`: `jdbc:mariadb://svc.sel3.cloudtype.app:31866/iriro`
+- Cloudtype 내부 실행용 `DB_URL`: `jdbc:mariadb://iriro-db:3306/iriro`
+- `DB_USERNAME`, `DB_PASSWORD`는 별도 공유받아 `.env`에 입력합니다. 비밀번호는 Git에 올리지 않습니다.
+- `.env`를 읽기 위해 `source` 명령을 실행할 필요는 없습니다. IntelliJ에서 실행할 때는 작업 디렉터리가 저장소 루트인지 확인합니다. 배포를 다시 만들면 외부 주소·포트를 확인해 갱신합니다.
 
 ## 구조
 
