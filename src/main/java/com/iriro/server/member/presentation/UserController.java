@@ -37,4 +37,13 @@ public class UserController {
         UpdateProfileResponse responseData = userService.updateProfile(currentMemberId, request);
         return ResponseEntity.ok(ApiResponse.success("프로필이 수정되었습니다.", responseData));
     }
+
+    @Operation(summary = "닉네임 중복 확인", description = "닉네임 사용 가능 여부를 확인합니다. (인증 불필요)")
+    @GetMapping("/nickname-availability")
+    public ResponseEntity<ApiResponse<NicknameCheckResponse>> checkNicknameAvailability(
+            @Valid @ModelAttribute NicknameCheckRequest request
+    ) {
+        NicknameCheckResponse responseData = userService.checkNicknameAvailability(request.getMemberName());
+        return ResponseEntity.ok(ApiResponse.success("조회되었습니다.", responseData));
+    }
 }

@@ -9,6 +9,7 @@ import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.EmailCredentialRepository;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import com.iriro.server.member.presentation.MyInfoResponse;
+import com.iriro.server.member.presentation.NicknameCheckResponse;
 import com.iriro.server.member.presentation.UpdateProfileRequest;
 import com.iriro.server.member.presentation.UpdateProfileResponse;
 import lombok.RequiredArgsConstructor;
@@ -77,5 +78,18 @@ public class UserService {
 
         // 4. 응답 DTO 변환 및 반환
         return UpdateProfileResponse.from(member);
+    }
+
+    /**
+     * 닉네임 사용 가능 여부 확인
+     */
+    public NicknameCheckResponse checkNicknameAvailability(String memberName) {
+        // 영문 대소문자 무시 동일 비교를 위해 소문자로 정규화
+        String memberNameKey = memberName.toLowerCase();
+
+        // DB에 존재하지 않으면 사용 가능(true), 존재하면 사용 불가(false)
+        boolean isAvailable = !memberRepository.existsByMemberNameKey(memberNameKey);
+
+        return NicknameCheckResponse.of(memberName, isAvailable);
     }
 }
