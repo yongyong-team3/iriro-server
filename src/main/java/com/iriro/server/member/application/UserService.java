@@ -1,0 +1,55 @@
+package com.iriro.server.member.application;
+
+import com.iriro.server.activity.infrastructure.ActivityRepository;
+import com.iriro.server.badge.infrastructure.BadgeAwardRepository;
+import com.iriro.server.common.CustomException;
+import com.iriro.server.common.ErrorCode;
+import com.iriro.server.member.domain.EmailCredential;
+import com.iriro.server.member.domain.Member;
+import com.iriro.server.member.infrastructure.EmailCredentialRepository;
+import com.iriro.server.member.infrastructure.MemberRepository;
+import com.iriro.server.member.presentation.MyInfoResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class UserService {
+
+    private final MemberRepository memberRepository;
+    private final ActivityRepository activityRepository;
+    private final BadgeAwardRepository badgeAwardRepository;
+    private final EmailCredentialRepository emailCredentialRepository;
+    // private final NotificationRepository notificationRepository; // 담당자 구현 전까지 주석 처리
+
+    /**
+     * 내 프로필 정보 및 활동 요약 조회
+     */
+    public MyInfoResponse getMyInfo(Long memberId) {
+        // 1. 회원 정보 조회 (존재하지 않을 경우 401/404 처리)
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED_USER));
+        String email = emailCredentialRepository.findByMemberId(memberId)
+                .map(EmailCredential::getEmailNormalized)
+                .orElse(null);
+
+        // 2. 활동 및 지표 집계 데이터 조회 (집계 데이터가 없으면 기본값 0 처리)
+        long totalActivityCount = activityRepository.countByMemberId(memberId);
+        long totalDistanceMeters = activityRepository.sumDistanceByMemberId(memberId);
+        long earnedBadgeCount = badgeAwardRepository.countByMemberId(memberId);
+        long unreadNotificationCount = 0L;
+        // long unreadNotificationCount = notificationRepository.countByMemberIdAndIsReadFalse(memberId); // 담당자 구현 전까지 주석 처리
+
+        // 3. 응답 DTO 생성 및 반환
+        return MyInfoResponse.of(
+                member,
+                email,
+                totalActivityCount,
+                totalDistanceMeters,
+                earnedBadgeCount,
+                unreadNotificationCount
+        );
+    }
+}
