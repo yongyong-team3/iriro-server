@@ -26,15 +26,17 @@ public class RouteService {
     private final RouteStartPointRepository startPoints;
     private final DetourRepository detours;
     private final ObjectMapper objectMapper;
+    private final TrailStatusService statusService;
 
     public RouteService(TrailRepository trails, RouteRepository routes,
                         RouteStartPointRepository startPoints, DetourRepository detours,
-                        ObjectMapper objectMapper) {
+                        ObjectMapper objectMapper, TrailStatusService statusService) {
         this.trails = trails;
         this.routes = routes;
         this.startPoints = startPoints;
         this.detours = detours;
         this.objectMapper = objectMapper;
+        this.statusService = statusService;
     }
 
     @Transactional(readOnly = true)
@@ -57,9 +59,11 @@ public class RouteService {
         Route route = routes.findById(routeId).orElseThrow(() ->
                 new ApiException(HttpStatus.NOT_FOUND, "ROUTE_NOT_FOUND", "코스를 찾을 수 없습니다."));
         RouteListResponse.Item item = item(route);
+        var trail = trails.findById(route.getTrailId()).orElseThrow(() ->
+                new ApiException(HttpStatus.NOT_FOUND, "TRAIL_NOT_FOUND", "하천길을 찾을 수 없습니다."));
         return new RouteDetailResponse(item.routeId(), route.getTrailId(), item.name(), item.activityTypes(),
                 item.distanceMeters(), item.estimatedDurationSeconds(), item.geometry(), item.startPoints(),
-                "UNKNOWN");
+                statusService.status(trail).waterStatus());
     }
 
     @Transactional(readOnly = true)

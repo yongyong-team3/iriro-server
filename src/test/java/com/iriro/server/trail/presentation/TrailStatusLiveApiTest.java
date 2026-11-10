@@ -2,6 +2,7 @@ package com.iriro.server.trail.presentation;
 
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -20,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -35,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class TrailStatusLiveApiTest {
     private static final HttpServer aiServer = createServer();
+    private static final AtomicReference<String> mode = new AtomicReference<>("HIGH");
     @Autowired MockMvc mockMvc;
     @Autowired JdbcTemplate jdbcTemplate;
 
@@ -46,16 +49,12 @@ class TrailStatusLiveApiTest {
     @AfterAll
     static void stopAiServer() { aiServer.stop(0); }
 
+    @BeforeEach
+    void resetMode() { mode.set("HIGH"); }
+
     @Test
     void mapsLiveHighWaterForecastAndRecovery() throws Exception {
-        jdbcTemplate.update("""
-                INSERT INTO trails (name, center_latitude, center_longitude, length_meters,
-                    geometry_geojson, water_station_code, created_at, updated_at)
-                VALUES ('경안천', 37.324500, 127.235500, 2400,
-                    '{"type":"LineString","coordinates":[[127.2355,37.3245],[127.2360,37.3250]]}',
-                    '1016607', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                """);
-        Long trailId = jdbcTemplate.queryForObject("SELECT id FROM trails WHERE name = '경안천'", Long.class);
+        Long trailId = insertLinkedTrail();
         mockMvc.perform(get("/api/v1/trails/{trailId}/status", trailId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stationName").value("월촌교"))
@@ -67,6 +66,45 @@ class TrailStatusLiveApiTest {
                 .andExpect(jsonPath("$.data.trend").value("FALLING"))
                 .andExpect(jsonPath("$.data.recoveryStatus").value("PREDICTED"))
                 .andExpect(jsonPath("$.data.recoveryEtaAtLeastMinutes").value(240));
+
+        mockMvc.perform(get("/api/v1/trails"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trails[0].waterStatus").value("HIGH_WATER"))
+                .andExpect(jsonPath("$.data.trails[0].dataSource").value("LIVE"));
+    }
+
+    @Test
+    void liveObservationWithoutForecastIsPartial() throws Exception {
+        mode.set("PARTIAL");
+        Long trailId = insertLinkedTrail();
+        mockMvc.perform(get("/api/v1/trails/{trailId}/status", trailId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dataStatus").value("PARTIAL"))
+                .andExpect(jsonPath("$.data.waterStatus").value("NORMAL"))
+                .andExpect(jsonPath("$.data.predictedWaterLevelMeters").value((String) null));
+    }
+
+    @Test
+    void oldLastObservationIsStaleAndHidden() throws Exception {
+        mode.set("STALE");
+        Long trailId = insertLinkedTrail();
+        mockMvc.perform(get("/api/v1/trails/{trailId}/status", trailId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dataStatus").value("STALE"))
+                .andExpect(jsonPath("$.data.waterStatus").value("UNKNOWN"))
+                .andExpect(jsonPath("$.data.currentWaterLevelMeters").value((String) null))
+                .andExpect(jsonPath("$.data.observedAt").isNotEmpty());
+    }
+
+    private Long insertLinkedTrail() {
+        jdbcTemplate.update("""
+                INSERT INTO trails (name, center_latitude, center_longitude, length_meters,
+                    geometry_geojson, water_station_code, created_at, updated_at)
+                VALUES ('경안천', 37.324500, 127.235500, 2400,
+                    '{"type":"LineString","coordinates":[[127.2355,37.3245],[127.2360,37.3250]]}',
+                    '1016607', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """);
+        return jdbcTemplate.queryForObject("SELECT id FROM trails WHERE name = '경안천'", Long.class);
     }
 
     private static HttpServer createServer() {
@@ -81,6 +119,29 @@ class TrailStatusLiveApiTest {
                          "forecast_1h":{"target_time":"%s","level_m":1.75,"trend":"falling","model_version":"test-model"},
                          "recovery":{"status":"predicted","eta_hours_at_least":4.0,"model_version":"recovery-v0.5"}}
                         """.formatted(now, next);
+                if ("PARTIAL".equals(mode.get())) {
+                    response = """
+                            {"station":{"name":"월촌교","water_station_code":"1016607"},"data_source":"hrfco",
+                             "observed_at":"%s","water_level_m":1.2,"data_status":"partial",
+                             "forecast_1h":null,"recovery":{"status":"below_threshold","model_version":"recovery-v0.5"}}
+                            """.formatted(now);
+                } else if ("STALE".equals(mode.get())) {
+                    response = """
+                            {"station":{"name":"월촌교","water_station_code":"1016607"},"data_source":"hrfco",
+                             "observed_at":"%s","water_level_m":null,"data_status":"missing",
+                             "forecast_1h":null,"recovery":{"status":"insufficient_data"}}
+                            """.formatted(now);
+                }
+                byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, bytes.length);
+                exchange.getResponseBody().write(bytes);
+                exchange.close();
+            });
+            server.createContext("/live/series", exchange -> {
+                String old = LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusMinutes(31)
+                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                String response = "{\"points\":[{\"time\":\"" + old + "\",\"water_level_m\":1.8}]}";
                 byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, bytes.length);

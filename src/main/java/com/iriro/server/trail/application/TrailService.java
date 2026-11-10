@@ -16,10 +16,12 @@ import java.time.OffsetDateTime;
 public class TrailService {
     private final TrailRepository trails;
     private final ObjectMapper objectMapper;
+    private final TrailStatusService statusService;
 
-    public TrailService(TrailRepository trails, ObjectMapper objectMapper) {
+    public TrailService(TrailRepository trails, ObjectMapper objectMapper, TrailStatusService statusService) {
         this.trails = trails;
         this.objectMapper = objectMapper;
+        this.statusService = statusService;
     }
 
     @Transactional(readOnly = true)
@@ -53,11 +55,12 @@ public class TrailService {
     }
 
     private TrailListResponse.Item item(Trail trail, Double latitude, Double longitude) {
+        var status = statusService.status(trail);
         Long distance = latitude == null ? null : Math.round(distanceMeters(latitude, longitude,
                 trail.getCenterLatitude().doubleValue(), trail.getCenterLongitude().doubleValue()));
         return new TrailListResponse.Item(trail.getId(), trail.getName(), trail.getSectionName(),
                 trail.getCenterLatitude(), trail.getCenterLongitude(), distance,
-                trail.getLengthMeters(), "UNKNOWN", "UNAVAILABLE");
+                trail.getLengthMeters(), status.waterStatus(), status.dataSource());
     }
 
     private double distanceMeters(double lat1, double lon1, double lat2, double lon2) {

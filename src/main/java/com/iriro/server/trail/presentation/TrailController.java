@@ -3,6 +3,7 @@ package com.iriro.server.trail.presentation;
 import com.iriro.server.common.presentation.ApiSuccessResponse;
 import com.iriro.server.trail.application.TrailService;
 import com.iriro.server.trail.application.RouteService;
+import com.iriro.server.trail.application.TrailStatusService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -18,10 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class TrailController {
     private final TrailService service;
     private final RouteService routes;
+    private final TrailStatusService statusService;
 
-    public TrailController(TrailService service, RouteService routes) {
+    public TrailController(TrailService service, RouteService routes, TrailStatusService statusService) {
         this.service = service;
         this.routes = routes;
+        this.statusService = statusService;
     }
 
     @GetMapping
@@ -52,5 +55,10 @@ public class TrailController {
     public ApiSuccessResponse<RouteListResponse> routes(@PathVariable Long trailId,
                                                         @RequestParam(required = false) String activityType) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", routes.list(trailId, activityType));
+    }
+
+    @GetMapping("/{trailId}/status")
+    public ApiSuccessResponse<TrailStatusResponse> status(@PathVariable Long trailId) {
+        return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", statusService.get(trailId));
     }
 }
