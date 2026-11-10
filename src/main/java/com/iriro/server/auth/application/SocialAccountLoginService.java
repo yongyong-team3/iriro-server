@@ -37,7 +37,7 @@ public class SocialAccountLoginService {
         Member member = socialAccount.getMember();
         AuthTokenResponse tokens = tokenSessionService.issueTokens(member);
         return new SocialLoginResponse(tokens.accessToken(), tokens.refreshToken(), tokens.tokenType(),
-                tokens.expiresIn(), tokenSessionService.refreshTtlSeconds(), existing.isEmpty(),
+                tokens.accessTokenExpiresInSeconds(), tokens.refreshTokenExpiresInSeconds(), existing.isEmpty(),
                 member.getMemberName() == null,
                 new SocialLoginResponse.MemberInfo(member.getId(), member.getMemberName(), null));
     }

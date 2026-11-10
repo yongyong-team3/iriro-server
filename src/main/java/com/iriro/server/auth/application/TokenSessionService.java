@@ -36,7 +36,8 @@ public class TokenSessionService {
                 jwtTokenService.hash(refresh.value()),
                 expiresAt
         ));
-        return new AuthTokenResponse("Bearer", access.value(), refresh.value(), jwtTokenService.accessTtlSeconds());
+        return new AuthTokenResponse("Bearer", access.value(), refresh.value(),
+                jwtTokenService.accessTtlSeconds(), jwtTokenService.refreshTtlSeconds());
     }
 
     public long refreshTtlSeconds() {
