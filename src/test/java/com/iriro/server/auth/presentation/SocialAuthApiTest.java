@@ -1,0 +1,134 @@
+package com.iriro.server.auth.presentation;
+
+import com.iriro.server.auth.domain.SocialAccount;
+import com.iriro.server.auth.domain.SocialProvider;
+import com.iriro.server.auth.infrastructure.JwtTokenService;
+import com.iriro.server.auth.infrastructure.KakaoSocialProviderClient;
+import com.iriro.server.auth.infrastructure.NaverSocialProviderClient;
+import com.iriro.server.auth.infrastructure.SocialAccountRepository;
+import com.iriro.server.auth.infrastructure.SocialProviderClient.SocialUserInfo;
+import com.iriro.server.common.application.ApiException;
+import com.iriro.server.member.domain.Member;
+import com.iriro.server.member.infrastructure.MemberRepository;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@TestPropertySource(properties = "spring.datasource.url=jdbc:h2:mem:social-auth-api;MODE=MySQL;DB_CLOSE_DELAY=-1")
+@Transactional
+class SocialAuthApiTest {
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @Autowired
+    MemberRepository memberRepository;
+
+    @Autowired
+    SocialAccountRepository socialAccountRepository;
+
+    @Autowired
+    JwtTokenService jwtTokenService;
+
+    @MockitoBean
+    KakaoSocialProviderClient kakaoClient;
+
+    @MockitoBean
+    NaverSocialProviderClient naverClient;
+
+    @Test
+    void logsInExistingKakaoAccountWithoutCreatingAnotherMember() throws Exception {
+        Member member = memberRepository.saveAndFlush(new Member(null, null));
+        socialAccountRepository.saveAndFlush(new SocialAccount(member, SocialProvider.KAKAO, "kakao-user-1"));
+        long memberCountBefore = memberRepository.count();
+        when(kakaoClient.verifyAndGetUser("mock-kakao-token"))
+                .thenReturn(new SocialUserInfo("kakao-user-1"));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson("KAKAO", "mock-kakao-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
+                .andReturn();
+
+        long tokenMemberId = jwtTokenService.verify(extractToken(result, "accessToken"), "access").memberId();
+        assertThat(tokenMemberId).isEqualTo(member.getId());
+        assertThat(memberRepository.count()).isEqualTo(memberCountBefore);
+        assertThat(socialAccountRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void createsAnIndependentMemberForNewNaverIdentity() throws Exception {
+        when(naverClient.verifyAndGetUser("mock-naver-token"))
+                .thenReturn(new SocialUserInfo("naver-user-1"));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson("NAVER", "mock-naver-token")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andReturn();
+
+        long memberId = jwtTokenService.verify(extractToken(result, "accessToken"), "access").memberId();
+        SocialAccount account = socialAccountRepository
+                .findByProviderAndProviderUserId(SocialProvider.NAVER, "naver-user-1")
+                .orElseThrow();
+        assertThat(account.getMember().getId()).isEqualTo(memberId);
+        assertThat(account.getMember().getMemberName()).isNull();
+        assertThat(memberRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsProviderTokenFailureWithoutCreatingMember() throws Exception {
+        when(kakaoClient.verifyAndGetUser("expired-token"))
+                .thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_SOCIAL_TOKEN", "invalid token"));
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson("KAKAO", "expired-token")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("INVALID_SOCIAL_TOKEN"))
+                .andExpect(jsonPath("$.message").isNotEmpty())
+                .andExpect(jsonPath("$.errors").isArray());
+        assertThat(memberRepository.count()).isZero();
+        assertThat(socialAccountRepository.count()).isZero();
+    }
+
+    private String requestJson(String provider, String token) {
+        return """
+                {"provider":"%s","accessToken":"%s"}
+                """.formatted(provider, token);
+    }
+
+    private String extractToken(MvcResult result, String field) throws Exception {
+        Matcher matcher = Pattern.compile("\\\"" + field + "\\\":\\\"([^\\\"]+)\\\"")
+                .matcher(result.getResponse().getContentAsString());
+        if (!matcher.find()) {
+            throw new AssertionError("Token field missing from response: " + field);
+        }
+        return matcher.group(1);
+    }
+}
