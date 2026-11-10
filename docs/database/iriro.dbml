@@ -1,6 +1,6 @@
 Project iriro {
   database_type: 'MySQL'
-  Note: 'MariaDB 11.4 / InnoDB. DATETIME values are stored in UTC. GeoJSON and GPS JSON are validated by the API.'
+  Note: 'MariaDB 11.2 / InnoDB. DATETIME values are stored in UTC. GeoJSON and GPS JSON are validated by the API.'
 }
 
 Table members {
