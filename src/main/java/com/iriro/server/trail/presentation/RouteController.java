@@ -38,6 +38,10 @@ public class RouteController {
     }
 
     @GetMapping("/{routeId}/availability")
+    @Operation(summary = "코스 시작 전 상태 확인", description = "수위 경고 상태에도 시작은 허용하고 경고를 반환")
+    @ApiResponse(responseCode = "200", description = "확인 성공")
+    @ApiResponse(responseCode = "400", description = "지정 출발점 오류")
+    @ApiResponse(responseCode = "404", description = "코스 없음")
     public ApiSuccessResponse<RouteAvailabilityResponse> availability(
             @PathVariable Long routeId, @RequestParam(required = false) String startPointId) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", service.availability(routeId, startPointId));
