@@ -15,25 +15,25 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class BadgeAward {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @EmbeddedId
+    private BadgeAwardId id;
 
+    @MapsId("memberId")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "badge_code", nullable = false, length = 50)
-    private BadgeCode badgeCode;
 
     @Column(name = "earned_at", nullable = false, updatable = false)
     private LocalDateTime earnedAt;
 
     @Builder
     public BadgeAward(Member member, BadgeCode badgeCode) {
+        this.id = new BadgeAwardId(member.getId(), badgeCode);
         this.member = member;
-        this.badgeCode = badgeCode;
         this.earnedAt = LocalDateTime.now();
+    }
+
+    public BadgeCode getBadgeCode() {
+        return id.getBadgeCode();
     }
 }
