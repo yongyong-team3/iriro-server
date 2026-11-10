@@ -58,6 +58,9 @@ public class TrailController {
     }
 
     @GetMapping("/{trailId}/status")
+    @Operation(summary = "하천길 수위·AI 예측 조회", description = "관측소 미연결 또는 AI 장애 시 UNKNOWN 반환")
+    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiResponse(responseCode = "404", description = "하천길 없음")
     public ApiSuccessResponse<TrailStatusResponse> status(@PathVariable Long trailId) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", statusService.get(trailId));
     }
