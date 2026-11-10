@@ -23,7 +23,11 @@ class SocialProviderClientTest {
     void verifiesKakaoTokenAndReadsProviderUserIdWithoutCredentials() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://kapi.kakao.com");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        KakaoSocialProviderClient client = new KakaoSocialProviderClient(builder.build());
+        KakaoSocialProviderClient client = new KakaoSocialProviderClient(builder.build(), 98765L);
+        server.expect(requestTo("https://kapi.kakao.com/v1/user/access_token_info"))
+                .andExpect(method(HttpMethod.GET))
+                .andExpect(header("Authorization", "Bearer mock-kakao-token"))
+                .andRespond(withSuccess("{\"id\":123456,\"expires_in\":3600,\"app_id\":98765}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://kapi.kakao.com/v2/user/me"))
                 .andExpect(method(HttpMethod.GET))
                 .andExpect(header("Authorization", "Bearer mock-kakao-token"))
@@ -60,8 +64,8 @@ class SocialProviderClientTest {
     void rejectsProviderReportedExpiredToken() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://kapi.kakao.com");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        KakaoSocialProviderClient client = new KakaoSocialProviderClient(builder.build());
-        server.expect(requestTo("https://kapi.kakao.com/v2/user/me"))
+        KakaoSocialProviderClient client = new KakaoSocialProviderClient(builder.build(), 98765L);
+        server.expect(requestTo("https://kapi.kakao.com/v1/user/access_token_info"))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
         ApiException exception = assertThrows(
@@ -71,6 +75,86 @@ class SocialProviderClientTest {
 
         assertThat(exception.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED);
         assertThat(exception.getCode()).isEqualTo("INVALID_PROVIDER_TOKEN");
+        server.verify();
+    }
+
+    @Test
+    void rejectsKakaoTokenIssuedForAnotherAppBeforeFetchingProfile() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://kapi.kakao.com");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KakaoSocialProviderClient client = new KakaoSocialProviderClient(builder.build(), 98765L);
+        server.expect(requestTo("https://kapi.kakao.com/v1/user/access_token_info"))
+                .andRespond(withSuccess("{\"id\":123456,\"expires_in\":3600,\"app_id\":11111}", MediaType.APPLICATION_JSON));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> client.verifyAndGetUser("other-app-token"));
+
+        assertThat(exception.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        server.verify();
+    }
+
+    @Test
+    void rejectsKakaoProfileThatDoesNotMatchVerifiedTokenIdentity() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://kapi.kakao.com");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KakaoSocialProviderClient client = new KakaoSocialProviderClient(builder.build(), 98765L);
+        server.expect(requestTo("https://kapi.kakao.com/v1/user/access_token_info"))
+                .andRespond(withSuccess("{\"id\":123456,\"expires_in\":3600,\"app_id\":98765}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://kapi.kakao.com/v2/user/me"))
+                .andRespond(withSuccess("{\"id\":789}", MediaType.APPLICATION_JSON));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> client.verifyAndGetUser("mismatched-token"));
+
+        assertThat(exception.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        server.verify();
+    }
+
+    @Test
+    void reportsKakaoServerFailureWithoutAcceptingToken() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://kapi.kakao.com");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KakaoSocialProviderClient client = new KakaoSocialProviderClient(builder.build(), 98765L);
+        server.expect(requestTo("https://kapi.kakao.com/v1/user/access_token_info"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> client.verifyAndGetUser("unavailable-token"));
+
+        assertThat(exception.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        server.verify();
+    }
+
+    @Test
+    void reportsKakaoTemporaryPlatformErrorAsUnavailable() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://kapi.kakao.com");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        KakaoSocialProviderClient client = new KakaoSocialProviderClient(builder.build(), 98765L);
+        server.expect(requestTo("https://kapi.kakao.com/v1/user/access_token_info"))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .body("{\"code\":-1,\"msg\":\"temporary provider failure\"}")
+                        .contentType(MediaType.APPLICATION_JSON));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> client.verifyAndGetUser("provider-failure-token"));
+
+        assertThat(exception.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        server.verify();
+    }
+
+    @Test
+    void rejectsNaverAuthenticationFailureResponse() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://openapi.naver.com");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        NaverSocialProviderClient client = new NaverSocialProviderClient(builder.build());
+        server.expect(requestTo("https://openapi.naver.com/v1/nid/me"))
+                .andRespond(withSuccess("{\"resultcode\":\"024\",\"message\":\"Authentication failed\"}",
+                        MediaType.APPLICATION_JSON));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> client.verifyAndGetUser("invalid-naver-token"));
+
+        assertThat(exception.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED);
         server.verify();
     }
 }

@@ -3,6 +3,7 @@ package com.iriro.server.auth.infrastructure;
 import com.iriro.server.auth.domain.SocialProvider;
 import com.iriro.server.common.application.ApiException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -18,8 +19,8 @@ public class NaverSocialProviderClient implements SocialProviderClient {
     private final RestClient restClient;
 
     @Autowired
-    public NaverSocialProviderClient() {
-        this(RestClient.create("https://openapi.naver.com"));
+    public NaverSocialProviderClient(@Value("${auth.naver.base-url}") String baseUrl) {
+        this(RestClient.create(baseUrl));
     }
 
     public NaverSocialProviderClient(RestClient restClient) {
@@ -39,6 +40,9 @@ public class NaverSocialProviderClient implements SocialProviderClient {
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
                     .body(NaverUserResponse.class);
+            if (response != null && ("024".equals(response.resultcode()) || "028".equals(response.resultcode()))) {
+                throw invalidProviderToken();
+            }
             if (response == null || !"00".equals(response.resultcode())
                     || response.response() == null || response.response().id() == null
                     || response.response().id().isBlank()) {

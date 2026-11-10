@@ -75,7 +75,7 @@ class SocialAuthApiTest {
                 .andExpect(jsonPath("$.data.isNewMember").value(false))
                 .andExpect(jsonPath("$.data.requiresNicknameSetup").value(true))
                 .andExpect(jsonPath("$.data.member.memberId").value(member.getId()))
-                .andExpect(jsonPath("$.data.accessTokenExpiresInSeconds").value(900))
+                .andExpect(jsonPath("$.data.accessTokenExpiresInSeconds").value(1800))
                 .andExpect(jsonPath("$.data.refreshTokenExpiresInSeconds").value(2592000))
                 .andReturn();
 

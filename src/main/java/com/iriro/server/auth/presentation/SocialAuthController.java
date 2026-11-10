@@ -6,10 +6,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
-import com.iriro.server.common.presentation.ApiErrorResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,14 +24,10 @@ public class SocialAuthController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "카카오·네이버 로그인", description = "앱에서 받은 제공자 Access Token으로 로그인합니다. 동일 이메일의 다른 제공자 계정은 병합하지 않습니다.")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "토큰과 회원 정보",
-            content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiSuccessResponse.class),
-                    examples = @ExampleObject(value = "{\"code\":\"SUCCESS\",\"message\":\"소셜 로그인이 완료되었습니다.\",\"data\":{\"accessToken\":\"eyJ...\",\"refreshToken\":\"opaque-refresh-token\",\"tokenType\":\"Bearer\",\"accessTokenExpiresInSeconds\":1800,\"refreshTokenExpiresInSeconds\":2592000,\"isNewMember\":true,\"requiresNicknameSetup\":true,\"member\":{\"memberId\":1,\"memberName\":null,\"profileImageUrl\":null}}"))),
+    @Operation(summary = "카카오·네이버 로그인", description = "앱에서 받은 제공자 Access Token으로 로그인합니다.")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "토큰과 회원 정보"),
             @ApiResponse(responseCode = "400", description = "요청 형식 오류"),
-            @ApiResponse(responseCode = "401", description = "제공자 토큰 오류",
-                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = ApiErrorResponse.class),
-                            examples = @ExampleObject(value = "{\"code\":\"INVALID_PROVIDER_TOKEN\",\"message\":\"소셜 인증 정보가 유효하지 않습니다.\",\"errors\":[]}"))),
+            @ApiResponse(responseCode = "401", description = "제공자 토큰 오류"),
             @ApiResponse(responseCode = "409", description = "계정 처리 충돌"),
             @ApiResponse(responseCode = "503", description = "제공자 인증 서버 장애")})
     public ApiSuccessResponse<SocialLoginResponse> login(@Valid @RequestBody SocialLoginRequest request) {

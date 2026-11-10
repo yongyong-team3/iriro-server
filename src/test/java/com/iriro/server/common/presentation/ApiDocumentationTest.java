@@ -28,6 +28,7 @@ class ApiDocumentationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.requestBody.content.application/json.schema").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['200'].content.application/json.schema").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.responses['401'].content.application/json.schema").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/v1/users/me'].get.security[0].bearerAuth").isArray())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
                 .andExpect(jsonPath("$.paths['/api/v1/trails']").doesNotExist());
