@@ -7,6 +7,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -22,6 +24,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class TrailListApiTest {
 
     @Autowired MockMvc mockMvc;
+    @Autowired JdbcTemplate jdbcTemplate;
+
+    @Test
+    @Transactional
+    void returnsRegisteredTrailAndDistanceFromRequestedLocation() throws Exception {
+        jdbcTemplate.update("""
+                INSERT INTO trails (name, section_name, description, center_latitude, center_longitude,
+                    length_meters, geometry_geojson, created_at, updated_at)
+                VALUES ('능원천 하천길', '월촌교~매산교 구간', '등록 구간', 37.338470, 127.237730,
+                    1364.50, '{"type":"LineString","coordinates":[[127.23773,37.33847],[127.22542,37.34358]]}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """);
+
+        mockMvc.perform(get("/api/v1/trails")
+                        .param("latitude", "37.33847")
+                        .param("longitude", "127.23773"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trails.length()").value(1))
+                .andExpect(jsonPath("$.data.trails[0].name").value("능원천 하천길"))
+                .andExpect(jsonPath("$.data.trails[0].sectionName").value("월촌교~매산교 구간"))
+                .andExpect(jsonPath("$.data.trails[0].distanceMeters").value(0))
+                .andExpect(jsonPath("$.data.trails[0].waterStatus").value("UNKNOWN"));
+    }
 
     @Test
     void listsTrailsWithoutAuthentication() throws Exception {
