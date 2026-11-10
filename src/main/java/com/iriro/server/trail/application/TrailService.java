@@ -1,9 +1,11 @@
 package com.iriro.server.trail.application;
 
+import tools.jackson.databind.ObjectMapper;
 import com.iriro.server.common.application.ApiException;
 import com.iriro.server.trail.domain.Trail;
 import com.iriro.server.trail.infrastructure.TrailRepository;
 import com.iriro.server.trail.presentation.TrailListResponse;
+import com.iriro.server.trail.presentation.TrailDetailResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,9 +15,24 @@ import java.time.OffsetDateTime;
 @Service
 public class TrailService {
     private final TrailRepository trails;
+    private final ObjectMapper objectMapper;
 
-    public TrailService(TrailRepository trails) {
+    public TrailService(TrailRepository trails, ObjectMapper objectMapper) {
         this.trails = trails;
+        this.objectMapper = objectMapper;
+    }
+
+    @Transactional(readOnly = true)
+    public TrailDetailResponse detail(Long trailId) {
+        Trail trail = trails.findById(trailId).orElseThrow(() ->
+                new ApiException(HttpStatus.NOT_FOUND, "TRAIL_NOT_FOUND", "하천길을 찾을 수 없습니다."));
+        try {
+            return new TrailDetailResponse(trail.getId(), trail.getName(), trail.getSectionName(),
+                    trail.getDescription(), trail.getLengthMeters(), trail.getCenterLatitude(),
+                    trail.getCenterLongitude(), objectMapper.readTree(trail.getGeometryGeojson()));
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException("Stored trail geometry is invalid", exception);
+        }
     }
 
     @Transactional(readOnly = true)
