@@ -31,6 +31,8 @@ class ApiDocumentationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/v1/users/me'].get.security[0].bearerAuth").isArray())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
-                .andExpect(jsonPath("$.paths['/api/v1/trails']").doesNotExist());
+                .andExpect(jsonPath("$.paths['/api/v1/trails'].get.security").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/trails/{trailId}/status'].get.summary").value("하천길 수위·AI 예측 조회"))
+                .andExpect(jsonPath("$.paths['/api/v1/routes/{routeId}/detours'].get.summary").value("우회 경로 조회"));
     }
 }
