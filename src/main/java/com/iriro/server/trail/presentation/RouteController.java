@@ -29,6 +29,9 @@ public class RouteController {
     }
 
     @GetMapping("/{routeId}/detours")
+    @Operation(summary = "우회 경로 조회")
+    @ApiResponse(responseCode = "200", description = "조회 성공; 우회 경로가 없으면 빈 배열")
+    @ApiResponse(responseCode = "404", description = "코스 없음")
     public ApiSuccessResponse<DetourListResponse> detours(@PathVariable Long routeId) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", service.detours(routeId));
     }
