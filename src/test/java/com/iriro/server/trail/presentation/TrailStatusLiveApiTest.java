@@ -96,6 +96,59 @@ class TrailStatusLiveApiTest {
                 .andExpect(jsonPath("$.data.observedAt").isNotEmpty());
     }
 
+    @Test
+    void replayIsMarkedAndNotComparedWithWallClock() throws Exception {
+        mode.set("REPLAY");
+        Long trailId = insertLinkedTrail();
+        mockMvc.perform(get("/api/v1/trails/{trailId}/status", trailId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dataSource").value("REPLAY"))
+                .andExpect(jsonPath("$.data.dataStatus").value("OK"))
+                .andExpect(jsonPath("$.data.officialControlStatus").value((String) null));
+    }
+
+    @Test
+    void missingObservationHasNullObservedAt() throws Exception {
+        mode.set("MISSING");
+        Long trailId = insertLinkedTrail();
+        mockMvc.perform(get("/api/v1/trails/{trailId}/status", trailId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dataStatus").value("MISSING"))
+                .andExpect(jsonPath("$.data.observedAt").value((String) null));
+    }
+
+    @Test
+    void aiFailureReturnsUnknownWithoutServerError() throws Exception {
+        mode.set("FAILURE");
+        Long trailId = insertLinkedTrail();
+        mockMvc.perform(get("/api/v1/trails/{trailId}/status", trailId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dataSource").value("UNAVAILABLE"))
+                .andExpect(jsonPath("$.data.waterStatus").value("UNKNOWN"));
+    }
+
+    @Test
+    void highWaterStillAllowsRouteStartWithWarning() throws Exception {
+        Long trailId = insertLinkedTrail();
+        jdbcTemplate.update("""
+                INSERT INTO routes (trail_id, name, distance_meters, estimated_duration_seconds,
+                    geometry_geojson, created_at, updated_at)
+                VALUES (?, '경안천 코스', 2400, 1800,
+                    '{"type":"LineString","coordinates":[[127.2355,37.3245],[127.2360,37.3250]]}',
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, trailId);
+        Long routeId = jdbcTemplate.queryForObject("SELECT id FROM routes WHERE trail_id = ?", Long.class, trailId);
+        jdbcTemplate.update("INSERT INTO route_start_points (route_id, name, latitude, longitude) VALUES (?, '월촌교', 37.324500, 127.235500)", routeId);
+        Long startId = jdbcTemplate.queryForObject("SELECT id FROM route_start_points WHERE route_id = ?", Long.class, routeId);
+
+        mockMvc.perform(get("/api/v1/routes/{routeId}/availability", routeId)
+                        .param("startPointId", startId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.startAllowed").value(true))
+                .andExpect(jsonPath("$.data.waterStatus").value("HIGH_WATER"))
+                .andExpect(jsonPath("$.data.warnings[0]").value("수위가 높습니다. 이용 전 현장을 확인해 주세요."));
+    }
+
     private Long insertLinkedTrail() {
         jdbcTemplate.update("""
                 INSERT INTO trails (name, center_latitude, center_longitude, length_meters,
@@ -111,6 +164,11 @@ class TrailStatusLiveApiTest {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
             server.createContext("/live/status", exchange -> {
+                if ("FAILURE".equals(mode.get())) {
+                    exchange.sendResponseHeaders(503, -1);
+                    exchange.close();
+                    return;
+                }
                 String now = LocalDateTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                 String next = LocalDateTime.now(ZoneId.of("Asia/Seoul")).plusHours(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                 String response = """
@@ -131,6 +189,15 @@ class TrailStatusLiveApiTest {
                              "observed_at":"%s","water_level_m":null,"data_status":"missing",
                              "forecast_1h":null,"recovery":{"status":"insufficient_data"}}
                             """.formatted(now);
+                } else if ("MISSING".equals(mode.get())) {
+                    response = """
+                            {"station":{"name":"월촌교","water_station_code":"1016607"},"data_source":"hrfco",
+                             "observed_at":"%s","water_level_m":null,"data_status":"missing",
+                             "forecast_1h":null,"recovery":{"status":"insufficient_data"}}
+                            """.formatted(now);
+                } else if ("REPLAY".equals(mode.get())) {
+                    response = response.replace("\"data_source\":\"hrfco\"", "\"data_source\":\"replay\"")
+                            .replace("\"observed_at\":\"" + now + "\"", "\"observed_at\":\"2026-07-10T01:00\"");
                 }
                 byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
@@ -141,7 +208,8 @@ class TrailStatusLiveApiTest {
             server.createContext("/live/series", exchange -> {
                 String old = LocalDateTime.now(ZoneId.of("Asia/Seoul")).minusMinutes(31)
                         .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-                String response = "{\"points\":[{\"time\":\"" + old + "\",\"water_level_m\":1.8}]}";
+                String response = "MISSING".equals(mode.get()) ? "{\"points\":[]}"
+                        : "{\"points\":[{\"time\":\"" + old + "\",\"water_level_m\":1.8}]}";
                 byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, bytes.length);

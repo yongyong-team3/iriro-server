@@ -50,5 +50,7 @@ class TrailDetailApiTest {
         mockMvc.perform(get("/api/v1/trails/999999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("TRAIL_NOT_FOUND"));
+        mockMvc.perform(get("/api/v1/trails/not-a-number"))
+                .andExpect(status().isBadRequest());
     }
 }

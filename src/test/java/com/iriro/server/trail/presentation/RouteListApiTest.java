@@ -77,5 +77,8 @@ class RouteListApiTest {
         mockMvc.perform(get("/api/v1/trails/1/routes").param("activityType", "SWIM"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        mockMvc.perform(get("/api/v1/trails/999999/routes"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("TRAIL_NOT_FOUND"));
     }
 }
