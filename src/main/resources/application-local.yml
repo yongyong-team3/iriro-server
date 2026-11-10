@@ -1,9 +1,0 @@
-springdoc:
-  api-docs:
-    enabled: true
-  swagger-ui:
-    enabled: true
-
-logging:
-  level:
-    org.hibernate.SQL: ${SQL_LOG_LEVEL:OFF}
