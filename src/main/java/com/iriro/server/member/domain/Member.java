@@ -1,10 +1,12 @@
 package com.iriro.server.member.domain;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
 
+@Getter
 @Entity
 @Table(
         name = "members",
@@ -13,13 +15,12 @@ import java.time.LocalDateTime;
                 columnNames = "member_name_key"
         )
 )
-(access = AccessLevel.PROTECTED)
 public class Member {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     
-    @Column(name = "id", nullable = false, columnDefinition = "BIGINT UNSIGNED"
+    @Column(name = "id", nullable = false, columnDefinition = "BIGINT UNSIGNED")
     private Long id;
 
     @Column(name = "member_name", length = 12)
@@ -58,23 +59,9 @@ public class Member {
         updatedAt = LocalDateTime.now(Clock.systemUTC());
     }
 
-    public Long getId() {
-        return id;
+    public void updateMemberName(String memberName) {
+        this.memberName = memberName;
+        this.memberNameKey = memberName != null ? memberName.toLowerCase() : null;
     }
 
-    public String getMemberName() {
-        return memberName;
-    }
-
-    public String getMemberNameKey() {
-        return memberNameKey;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
 }

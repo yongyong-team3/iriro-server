@@ -12,6 +12,7 @@ import com.iriro.server.member.presentation.MyInfoResponse;
 import com.iriro.server.member.presentation.NicknameCheckResponse;
 import com.iriro.server.member.presentation.UpdateProfileRequest;
 import com.iriro.server.member.presentation.UpdateProfileResponse;
+import com.iriro.server.notification.infrastructure.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +26,7 @@ public class UserService {
     private final ActivityRepository activityRepository;
     private final BadgeAwardRepository badgeAwardRepository;
     private final EmailCredentialRepository emailCredentialRepository;
-    // private final NotificationRepository notificationRepository; // 담당자 구현 전까지 주석 처리
+    private final NotificationRepository notificationRepository; // 담당자 구현 전까지 주석 처리
 
     /**
      * 내 프로필 정보 및 활동 요약 조회
@@ -42,8 +43,7 @@ public class UserService {
         long totalActivityCount = activityRepository.countByMemberId(memberId);
         long totalDistanceMeters = activityRepository.sumDistanceByMemberId(memberId);
         long earnedBadgeCount = badgeAwardRepository.countByMemberId(memberId);
-        long unreadNotificationCount = 0L;
-        // long unreadNotificationCount = notificationRepository.countByMemberIdAndIsReadFalse(memberId); // 담당자 구현 전까지 주석 처리
+        long unreadNotificationCount = notificationRepository.countByMemberIdAndIsReadFalse(memberId);
 
         // 3. 응답 DTO 생성 및 반환
         return MyInfoResponse.of(
