@@ -34,6 +34,9 @@ public class TrailController {
     }
 
     @GetMapping("/{trailId}")
+    @Operation(summary = "하천길 상세 조회")
+    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiResponse(responseCode = "404", description = "하천길 없음")
     public ApiSuccessResponse<TrailDetailResponse> detail(@PathVariable Long trailId) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", service.detail(trailId));
     }
