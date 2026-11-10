@@ -3,6 +3,7 @@ package com.iriro.server.trail.presentation;
 import com.iriro.server.common.presentation.ApiSuccessResponse;
 import com.iriro.server.trail.application.RouteService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,7 +44,9 @@ public class RouteController {
     @ApiResponse(responseCode = "400", description = "지정 출발점 오류")
     @ApiResponse(responseCode = "404", description = "코스 없음")
     public ApiSuccessResponse<RouteAvailabilityResponse> availability(
-            @PathVariable Long routeId, @RequestParam(required = false) String startPointId) {
+            @PathVariable Long routeId,
+            @Parameter(required = true, description = "지정 출발점 ID")
+            @RequestParam(required = false) String startPointId) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", service.availability(routeId, startPointId));
     }
 }

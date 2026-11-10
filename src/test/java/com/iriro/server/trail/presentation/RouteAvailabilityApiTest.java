@@ -48,6 +48,9 @@ class RouteAvailabilityApiTest {
                         .param("startPointId", "999999"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_START_POINT"));
+        mockMvc.perform(get("/api/v1/routes/{routeId}/availability", routeId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_START_POINT"));
     }
 
     @Test
