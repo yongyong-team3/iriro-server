@@ -17,6 +17,11 @@ spring:
 server:
   port: ${PORT:8080}
 
+kma:
+  weather:
+    url: ${API_URL}
+    service-key: ${API_KEY}
+
 management:
   endpoints:
     web:
