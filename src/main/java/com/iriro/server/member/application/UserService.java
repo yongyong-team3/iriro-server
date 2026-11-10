@@ -4,9 +4,11 @@ import com.iriro.server.activity.infrastructure.ActivityRepository;
 import com.iriro.server.badge.infrastructure.BadgeAwardRepository;
 import com.iriro.server.common.CustomException;
 import com.iriro.server.common.ErrorCode;
-import com.iriro.server.member.domain.EmailCredential;
+import com.iriro.server.auth.domain.EmailCredential;
+import com.iriro.server.auth.infrastructure.EmailCredentialRepository;
+import com.iriro.server.notification.infrastructure.NotificationRepository;
+import java.util.Locale;
 import com.iriro.server.member.domain.Member;
-import com.iriro.server.member.infrastructure.EmailCredentialRepository;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import com.iriro.server.member.presentation.MyInfoResponse;
 import com.iriro.server.member.presentation.NicknameCheckResponse;
@@ -25,7 +27,7 @@ public class UserService {
     private final ActivityRepository activityRepository;
     private final BadgeAwardRepository badgeAwardRepository;
     private final EmailCredentialRepository emailCredentialRepository;
-    // private final NotificationRepository notificationRepository; // 담당자 구현 전까지 주석 처리
+    private final NotificationRepository notificationRepository;
 
     /**
      * 내 프로필 정보 및 활동 요약 조회
@@ -42,8 +44,7 @@ public class UserService {
         long totalActivityCount = activityRepository.countByMemberId(memberId);
         long totalDistanceMeters = activityRepository.sumDistanceByMemberId(memberId);
         long earnedBadgeCount = badgeAwardRepository.countByMemberId(memberId);
-        long unreadNotificationCount = 0L;
-        // long unreadNotificationCount = notificationRepository.countByMemberIdAndIsReadFalse(memberId); // 담당자 구현 전까지 주석 처리
+        long unreadNotificationCount = notificationRepository.countByMember_IdAndReadAtIsNull(memberId);
 
         // 3. 응답 DTO 생성 및 반환
         return MyInfoResponse.of(
@@ -66,7 +67,7 @@ public class UserService {
                 .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED_USER));
 
         String newMemberName = request.getMemberName();
-        String newMemberNameKey = newMemberName.toLowerCase();
+        String newMemberNameKey = newMemberName.toLowerCase(Locale.ROOT);
 
         // 2. 닉네임 중복 재검사 (본인 제외 타 회원이 동일 키를 사용 중인 경우 409 DUPLICATE_MEMBER_NAME)
         if (memberRepository.existsByMemberNameKeyAndIdNot(newMemberNameKey, memberId)) {
@@ -85,7 +86,7 @@ public class UserService {
      */
     public NicknameCheckResponse checkNicknameAvailability(String memberName) {
         // 영문 대소문자 무시 동일 비교를 위해 소문자로 정규화
-        String memberNameKey = memberName.toLowerCase();
+        String memberNameKey = memberName.toLowerCase(Locale.ROOT);
 
         // DB에 존재하지 않으면 사용 가능(true), 존재하면 사용 불가(false)
         boolean isAvailable = !memberRepository.existsByMemberNameKey(memberNameKey);

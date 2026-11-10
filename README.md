@@ -9,6 +9,11 @@ Java 21 · Spring Boot 4.1.2 · Gradle Wrapper 9.8.2 · MariaDB 11.2. 모바일 
 3. IntelliJ에서 이 폴더를 Gradle 프로젝트로 열고 JDK 21을 선택합니다.
 4. `./gradlew test`로 확인한 뒤 `./gradlew bootRun`으로 실행합니다.
 
+`.env`의 `AUTH_JWT_SECRET`에는 팀에서 공유한 32바이트 이상의 난수 값을 입력합니다. 예시 값 `replace-me`로는 서버가 시작되지 않습니다.
+로컬에서는 `SPRING_PROFILES_ACTIVE=local`을 유지하면 Swagger UI를 `http://localhost:8080/swagger-ui.html`에서 볼 수 있습니다. Cloudtype의 기본 프로필에서는 Swagger가 꺼져 있습니다.
+SQL 문장이 필요할 때만 로컬 `.env`의 `SQL_LOG_LEVEL=DEBUG`로 바꾸고 다시 실행합니다. 값은 로그에 표시하지 않습니다.
+요청 로그에는 메서드·경로·상태·소요 시간만 남기며, 헤더·쿼리·본문은 기록하지 않습니다.
+
 상태 확인: `GET /actuator/health`. API 기본 경로: `/api/v1`.
 
 ### Cloudtype DB 연결

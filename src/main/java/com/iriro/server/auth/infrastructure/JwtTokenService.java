@@ -92,6 +92,10 @@ public class JwtTokenService {
         return accessTtlSeconds;
     }
 
+    public long refreshTtlSeconds() {
+        return refreshTtlSeconds;
+    }
+
     private IssuedToken issue(long memberId, String type, long ttlSeconds) {
         byte[] nonce = new byte[16];
         secureRandom.nextBytes(nonce);

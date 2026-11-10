@@ -38,4 +38,8 @@ public class TokenSessionService {
         ));
         return new AuthTokenResponse("Bearer", access.value(), refresh.value(), jwtTokenService.accessTtlSeconds());
     }
+
+    public long refreshTtlSeconds() {
+        return jwtTokenService.refreshTtlSeconds();
+    }
 }

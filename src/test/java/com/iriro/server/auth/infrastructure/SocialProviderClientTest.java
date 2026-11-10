@@ -70,7 +70,7 @@ class SocialProviderClientTest {
         );
 
         assertThat(exception.getStatus()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        assertThat(exception.getCode()).isEqualTo("INVALID_SOCIAL_TOKEN");
+        assertThat(exception.getCode()).isEqualTo("INVALID_PROVIDER_TOKEN");
         server.verify();
     }
 }

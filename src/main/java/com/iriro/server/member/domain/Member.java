@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Locale;
 
 @Entity
 @Table(
@@ -13,13 +14,12 @@ import java.time.LocalDateTime;
                 columnNames = "member_name_key"
         )
 )
-(access = AccessLevel.PROTECTED)
 public class Member {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     
-    @Column(name = "id", nullable = false, columnDefinition = "BIGINT UNSIGNED"
+    @Column(name = "id", nullable = false, columnDefinition = "BIGINT UNSIGNED")
     private Long id;
 
     @Column(name = "member_name", length = 12)
@@ -68,6 +68,11 @@ public class Member {
 
     public String getMemberNameKey() {
         return memberNameKey;
+    }
+
+    public void updateMemberName(String memberName) {
+        this.memberName = memberName;
+        this.memberNameKey = memberName.toLowerCase(Locale.ROOT);
     }
 
     public LocalDateTime getCreatedAt() {

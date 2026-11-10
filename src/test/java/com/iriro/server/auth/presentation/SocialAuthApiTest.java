@@ -72,6 +72,11 @@ class SocialAuthApiTest {
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.isNewMember").value(false))
+                .andExpect(jsonPath("$.data.requiresNicknameSetup").value(true))
+                .andExpect(jsonPath("$.data.member.memberId").value(member.getId()))
+                .andExpect(jsonPath("$.data.accessTokenExpiresInSeconds").value(900))
+                .andExpect(jsonPath("$.data.refreshTokenExpiresInSeconds").value(2592000))
                 .andReturn();
 
         long tokenMemberId = jwtTokenService.verify(extractToken(result, "accessToken"), "access").memberId();
@@ -90,6 +95,8 @@ class SocialAuthApiTest {
                         .content(requestJson("NAVER", "mock-naver-token")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.isNewMember").value(true))
+                .andExpect(jsonPath("$.data.requiresNicknameSetup").value(true))
                 .andReturn();
 
         long memberId = jwtTokenService.verify(extractToken(result, "accessToken"), "access").memberId();
@@ -104,13 +111,13 @@ class SocialAuthApiTest {
     @Test
     void rejectsProviderTokenFailureWithoutCreatingMember() throws Exception {
         when(kakaoClient.verifyAndGetUser("expired-token"))
-                .thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_SOCIAL_TOKEN", "invalid token"));
+                .thenThrow(new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_PROVIDER_TOKEN", "invalid token"));
 
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson("KAKAO", "expired-token")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("INVALID_SOCIAL_TOKEN"))
+                .andExpect(jsonPath("$.code").value("INVALID_PROVIDER_TOKEN"))
                 .andExpect(jsonPath("$.message").isNotEmpty())
                 .andExpect(jsonPath("$.errors").isArray());
         assertThat(memberRepository.count()).isZero();
@@ -119,7 +126,7 @@ class SocialAuthApiTest {
 
     private String requestJson(String provider, String token) {
         return """
-                {"provider":"%s","accessToken":"%s"}
+                {"provider":"%s","providerToken":"%s"}
                 """.formatted(provider, token);
     }
 

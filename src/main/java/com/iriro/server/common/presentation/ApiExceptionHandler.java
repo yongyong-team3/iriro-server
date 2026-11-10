@@ -1,6 +1,10 @@
 package com.iriro.server.common.presentation;
 
 import com.iriro.server.common.application.ApiException;
+import com.iriro.server.common.CustomException;
+import com.iriro.server.common.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
+import javax.naming.AuthenticationException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import org.springframework.http.HttpStatus;
@@ -13,10 +17,28 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
+@Slf4j
 public class ApiExceptionHandler {
+
+    @ExceptionHandler(CustomException.class)
+    public ResponseEntity<ApiErrorResponse> handleCustomException(CustomException exception) {
+        ErrorCode error = exception.getErrorCode();
+        return ResponseEntity.status(error.getStatus())
+                .body(new ApiErrorResponse(error.getCode(), error.getMessage(), List.of()));
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuthenticationException(AuthenticationException exception) {
+        ErrorCode error = ErrorCode.UNAUTHORIZED_USER;
+        return ResponseEntity.status(error.getStatus())
+                .body(new ApiErrorResponse(error.getCode(), error.getMessage(), List.of()));
+    }
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiErrorResponse> handleApiException(ApiException exception) {
+        if (exception.getStatus().is4xxClientError() || exception.getStatus().is5xxServerError()) {
+            log.warn("api failure code={} status={}", exception.getCode(), exception.getStatus().value());
+        }
         List<ApiErrorResponse.FieldError> errors = exception.getField() == null
                 ? List.of()
                 : List.of(new ApiErrorResponse.FieldError(exception.getField(), exception.getMessage()));
@@ -81,6 +103,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpectedException(Exception exception) {
+        log.error("Unhandled request failure type={}", exception.getClass().getName());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiErrorResponse("INTERNAL_SERVER_ERROR", "요청을 처리하지 못했습니다.", List.of()));
     }

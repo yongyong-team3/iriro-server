@@ -17,6 +17,12 @@ spring:
 server:
   port: ${PORT:8080}
 
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 management:
   endpoints:
     web:
@@ -30,5 +36,5 @@ integrations:
 iriro:
   auth:
     jwt-secret: ${AUTH_JWT_SECRET:}
-    access-token-ttl-seconds: ${AUTH_ACCESS_TOKEN_TTL_SECONDS:900}
+    access-token-ttl-seconds: ${AUTH_ACCESS_TOKEN_TTL_SECONDS:1800}
     refresh-token-ttl-seconds: ${AUTH_REFRESH_TOKEN_TTL_SECONDS:2592000}
