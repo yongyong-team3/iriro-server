@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface RouteStartPointRepository extends JpaRepository<RouteStartPoint, Long> {
     List<RouteStartPoint> findByRouteIdOrderByIdAsc(Long routeId);
+    boolean existsByIdAndRouteId(Long id, Long routeId);
 }

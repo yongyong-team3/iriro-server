@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -34,5 +35,11 @@ public class RouteController {
     @ApiResponse(responseCode = "404", description = "코스 없음")
     public ApiSuccessResponse<DetourListResponse> detours(@PathVariable Long routeId) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", service.detours(routeId));
+    }
+
+    @GetMapping("/{routeId}/availability")
+    public ApiSuccessResponse<RouteAvailabilityResponse> availability(
+            @PathVariable Long routeId, @RequestParam(required = false) String startPointId) {
+        return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", service.availability(routeId, startPointId));
     }
 }

@@ -9,6 +9,7 @@ import com.iriro.server.trail.infrastructure.TrailRepository;
 import com.iriro.server.trail.presentation.RouteListResponse;
 import com.iriro.server.trail.presentation.RouteDetailResponse;
 import com.iriro.server.trail.presentation.DetourListResponse;
+import com.iriro.server.trail.presentation.RouteAvailabilityResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,6 +78,33 @@ public class RouteService {
                         objectMapper.readTree(detour.getGeometryGeojson())))
                 .toList();
         return new DetourListResponse(routeId, items);
+    }
+
+    @Transactional(readOnly = true)
+    public RouteAvailabilityResponse availability(Long routeId, String startPointIdValue) {
+        Route route = routes.findById(routeId).orElseThrow(() ->
+                new ApiException(HttpStatus.NOT_FOUND, "ROUTE_NOT_FOUND", "코스를 찾을 수 없습니다."));
+        Long startPointId;
+        try {
+            startPointId = Long.valueOf(startPointIdValue);
+        } catch (NumberFormatException | NullPointerException exception) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_START_POINT", "출발점을 확인해 주세요.");
+        }
+        if (startPointId <= 0 || !startPoints.existsByIdAndRouteId(startPointId, routeId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_START_POINT", "출발점을 확인해 주세요.");
+        }
+        var trail = trails.findById(route.getTrailId()).orElseThrow(() ->
+                new ApiException(HttpStatus.NOT_FOUND, "TRAIL_NOT_FOUND", "하천길을 찾을 수 없습니다."));
+        var status = statusService.status(trail);
+        var warnings = new java.util.ArrayList<String>();
+        if ("HIGH_WATER".equals(status.waterStatus())) {
+            warnings.add("수위가 높습니다. 이용 전 현장을 확인해 주세요.");
+        } else if ("UNKNOWN".equals(status.waterStatus())) {
+            warnings.add("수위를 확인할 수 없습니다. 이용 전 현장을 확인해 주세요.");
+        }
+        warnings.add("공식 통제 미확인·AI 참고 정보");
+        return new RouteAvailabilityResponse(routeId, startPointId, true,
+                status.waterStatus(), status.dataSource(), warnings, status.responseGeneratedAt());
     }
 
     private RouteListResponse.Item item(Route route) {
