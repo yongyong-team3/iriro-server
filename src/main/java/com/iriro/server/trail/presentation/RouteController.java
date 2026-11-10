@@ -27,4 +27,9 @@ public class RouteController {
     public ApiSuccessResponse<RouteDetailResponse> detail(@PathVariable Long routeId) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", service.detail(routeId));
     }
+
+    @GetMapping("/{routeId}/detours")
+    public ApiSuccessResponse<DetourListResponse> detours(@PathVariable Long routeId) {
+        return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", service.detours(routeId));
+    }
 }

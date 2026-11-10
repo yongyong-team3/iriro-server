@@ -3,10 +3,12 @@ package com.iriro.server.trail.application;
 import com.iriro.server.common.application.ApiException;
 import com.iriro.server.trail.domain.Route;
 import com.iriro.server.trail.infrastructure.RouteRepository;
+import com.iriro.server.trail.infrastructure.DetourRepository;
 import com.iriro.server.trail.infrastructure.RouteStartPointRepository;
 import com.iriro.server.trail.infrastructure.TrailRepository;
 import com.iriro.server.trail.presentation.RouteListResponse;
 import com.iriro.server.trail.presentation.RouteDetailResponse;
+import com.iriro.server.trail.presentation.DetourListResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,13 +24,16 @@ public class RouteService {
     private final TrailRepository trails;
     private final RouteRepository routes;
     private final RouteStartPointRepository startPoints;
+    private final DetourRepository detours;
     private final ObjectMapper objectMapper;
 
     public RouteService(TrailRepository trails, RouteRepository routes,
-                        RouteStartPointRepository startPoints, ObjectMapper objectMapper) {
+                        RouteStartPointRepository startPoints, DetourRepository detours,
+                        ObjectMapper objectMapper) {
         this.trails = trails;
         this.routes = routes;
         this.startPoints = startPoints;
+        this.detours = detours;
         this.objectMapper = objectMapper;
     }
 
@@ -55,6 +60,19 @@ public class RouteService {
         return new RouteDetailResponse(item.routeId(), route.getTrailId(), item.name(), item.activityTypes(),
                 item.distanceMeters(), item.estimatedDurationSeconds(), item.geometry(), item.startPoints(),
                 "UNKNOWN");
+    }
+
+    @Transactional(readOnly = true)
+    public DetourListResponse detours(Long routeId) {
+        if (!routes.existsById(routeId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "ROUTE_NOT_FOUND", "코스를 찾을 수 없습니다.");
+        }
+        var items = detours.findByRouteIdOrderByIdAsc(routeId).stream()
+                .map(detour -> new DetourListResponse.Item(detour.getId(), detour.getName(),
+                        detour.getDistanceMeters(), detour.getExtraDistanceMeters(),
+                        objectMapper.readTree(detour.getGeometryGeojson())))
+                .toList();
+        return new DetourListResponse(routeId, items);
     }
 
     private RouteListResponse.Item item(Route route) {

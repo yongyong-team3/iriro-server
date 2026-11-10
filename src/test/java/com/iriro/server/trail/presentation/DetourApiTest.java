@@ -27,7 +27,7 @@ class DetourApiTest {
     @Autowired JdbcTemplate jdbcTemplate;
 
     @Test
-    void returnsEmptyArrayWhenRegisteredRouteHasNoDetours() throws Exception {
+    void returnsEmptyArrayOrRegisteredDetour() throws Exception {
         jdbcTemplate.update("""
                 INSERT INTO trails (name, center_latitude, center_longitude, length_meters,
                     geometry_geojson, created_at, updated_at)
@@ -48,6 +48,18 @@ class DetourApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.routeId").value(routeId))
                 .andExpect(jsonPath("$.data.detours").isEmpty());
+
+        jdbcTemplate.update("""
+                INSERT INTO detours (route_id, name, distance_meters, extra_distance_meters, geometry_geojson)
+                VALUES (?, '문현로 우회 코스', 1281.00, 0.00,
+                    '{"type":"LineString","coordinates":[[127.23773,37.33847],[127.22542,37.34358]]}')
+                """, routeId);
+        mockMvc.perform(get("/api/v1/routes/{routeId}/detours", routeId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.detours[0].name").value("문현로 우회 코스"))
+                .andExpect(jsonPath("$.data.detours[0].distanceMeters").value(1281.0))
+                .andExpect(jsonPath("$.data.detours[0].extraDistanceMeters").value(0.0))
+                .andExpect(jsonPath("$.data.detours[0].geometry.type").value("LineString"));
     }
 
     @Test
