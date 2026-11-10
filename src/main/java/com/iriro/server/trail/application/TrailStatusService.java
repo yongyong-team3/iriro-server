@@ -1,21 +1,16 @@
 package com.iriro.server.trail.application;
 
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 import com.iriro.server.common.application.ApiException;
 import com.iriro.server.trail.domain.Trail;
+import com.iriro.server.trail.infrastructure.AiStatusClient;
 import com.iriro.server.trail.infrastructure.TrailRepository;
 import com.iriro.server.trail.presentation.TrailStatusResponse;
 import org.springframework.http.HttpStatus;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -27,16 +22,11 @@ public class TrailStatusService {
     private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
     private static final String WOLCHON_STATION_CODE = "1016607";
     private final TrailRepository trails;
-    private final ObjectMapper objectMapper;
-    private final HttpClient httpClient;
-    private final String aiBaseUrl;
+    private final AiStatusClient aiStatusClient;
 
-    public TrailStatusService(TrailRepository trails, ObjectMapper objectMapper,
-                              @Value("${integrations.ai.base-url:http://localhost:8000}") String aiBaseUrl) {
+    public TrailStatusService(TrailRepository trails, AiStatusClient aiStatusClient) {
         this.trails = trails;
-        this.objectMapper = objectMapper;
-        this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
-        this.aiBaseUrl = aiBaseUrl.replaceAll("/+$", "");
+        this.aiStatusClient = aiStatusClient;
     }
 
     @Transactional(readOnly = true)
@@ -65,7 +55,7 @@ public class TrailStatusService {
     }
 
     private TrailStatusResponse liveStatus(Long trailId) throws Exception {
-        JsonNode body = getAi("/live/status");
+        JsonNode body = aiStatusClient.get("/live/status");
         String dataSource = "replay".equals(text(body, "data_source")) ? "REPLAY" : "LIVE";
         String stationName = text(body.path("station"), "name");
         if (!WOLCHON_STATION_CODE.equals(text(body.path("station"), "water_station_code"))) {
@@ -74,7 +64,7 @@ public class TrailStatusService {
         BigDecimal level = number(body, "water_level_m");
         OffsetDateTime observedAt = time(body, "observed_at");
         if (level == null && "LIVE".equals(dataSource)) {
-            JsonNode points = getAi("/live/series?hours=24").path("points");
+            JsonNode points = aiStatusClient.get("/live/series?hours=24").path("points");
             for (int index = points.size() - 1; index >= 0; index--) {
                 JsonNode point = points.get(index);
                 BigDecimal candidate = number(point, "water_level_m");
@@ -112,14 +102,6 @@ public class TrailStatusService {
                 hasForecast ? upper(text(forecast, "trend")) : null,
                 upper(text(recovery, "status")), etaMinutes, null,
                 "공식 통제 미확인·AI 참고 정보", generatedAt);
-    }
-
-    private JsonNode getAi(String path) throws Exception {
-        HttpRequest request = HttpRequest.newBuilder(URI.create(aiBaseUrl + path))
-                .timeout(Duration.ofSeconds(3)).GET().build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        if (response.statusCode() != 200) throw new IllegalStateException("AI status unavailable");
-        return objectMapper.readTree(response.body());
     }
 
     private String text(JsonNode node, String field) {
