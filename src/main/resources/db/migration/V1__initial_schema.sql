@@ -1,4 +1,4 @@
--- MariaDB 11.4 / InnoDB. Create the iriro database with utf8mb4 before Flyway runs.
+-- MariaDB 11.2 / InnoDB. Create the iriro database with utf8mb4 before Flyway runs.
 -- All DATETIME(6) values are UTC; the application controls timezone conversion.
 
 CREATE TABLE members (
