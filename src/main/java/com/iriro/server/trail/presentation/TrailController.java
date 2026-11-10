@@ -45,6 +45,10 @@ public class TrailController {
     }
 
     @GetMapping("/{trailId}/routes")
+    @Operation(summary = "하천길 코스 조회", description = "activityType으로 WALK·RUN·BIKE 코스 필터링")
+    @ApiResponse(responseCode = "200", description = "조회 성공")
+    @ApiResponse(responseCode = "400", description = "활동 유형 오류")
+    @ApiResponse(responseCode = "404", description = "하천길 없음")
     public ApiSuccessResponse<RouteListResponse> routes(@PathVariable Long trailId,
                                                         @RequestParam(required = false) String activityType) {
         return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.", routes.list(trailId, activityType));
