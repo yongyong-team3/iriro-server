@@ -4,7 +4,7 @@ import com.iriro.server.auth.domain.SocialProvider;
 import com.iriro.server.auth.infrastructure.KakaoSocialProviderClient;
 import com.iriro.server.auth.infrastructure.NaverSocialProviderClient;
 import com.iriro.server.auth.infrastructure.SocialProviderClient;
-import com.iriro.server.auth.presentation.AuthTokenResponse;
+import com.iriro.server.auth.presentation.SocialLoginResponse;
 import com.iriro.server.common.application.ApiException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,13 +26,13 @@ public class SocialAuthService {
         this.socialAccountLoginService = socialAccountLoginService;
     }
 
-    public AuthTokenResponse login(SocialProvider provider, String accessToken) {
+    public SocialLoginResponse login(SocialProvider provider, String accessToken) {
         SocialProviderClient.SocialUserInfo user = switch (provider) {
             case KAKAO -> kakaoClient.verifyAndGetUser(accessToken);
             case NAVER -> naverClient.verifyAndGetUser(accessToken);
         };
         if (user == null || user.providerUserId() == null || user.providerUserId().isBlank()) {
-            throw new ApiException(HttpStatus.BAD_GATEWAY, "SOCIAL_PROVIDER_UNAVAILABLE", "소셜 사용자 정보를 확인할 수 없습니다.");
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PROVIDER_UNAVAILABLE", "소셜 로그인 서비스를 사용할 수 없습니다.");
         }
         return socialAccountLoginService.login(provider, user.providerUserId());
     }

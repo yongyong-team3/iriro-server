@@ -3,21 +3,24 @@ package com.iriro.server.auth.infrastructure;
 import com.iriro.server.auth.domain.SocialProvider;
 import com.iriro.server.common.application.ApiException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
+@Slf4j
 public class NaverSocialProviderClient implements SocialProviderClient {
 
     private final RestClient restClient;
 
     @Autowired
-    public NaverSocialProviderClient() {
-        this(RestClient.create("https://openapi.naver.com"));
+    public NaverSocialProviderClient(@Value("${auth.naver.base-url}") String baseUrl) {
+        this(RestClient.create(baseUrl));
     }
 
     public NaverSocialProviderClient(RestClient restClient) {
@@ -37,6 +40,9 @@ public class NaverSocialProviderClient implements SocialProviderClient {
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                     .retrieve()
                     .body(NaverUserResponse.class);
+            if (response != null && ("024".equals(response.resultcode()) || "028".equals(response.resultcode()))) {
+                throw invalidProviderToken();
+            }
             if (response == null || !"00".equals(response.resultcode())
                     || response.response() == null || response.response().id() == null
                     || response.response().id().isBlank()) {
@@ -44,21 +50,23 @@ public class NaverSocialProviderClient implements SocialProviderClient {
             }
             return new SocialUserInfo(response.response().id());
         } catch (RestClientResponseException exception) {
+            log.warn("social provider=NAVER result=http_error status={}", exception.getStatusCode().value());
             if (exception.getStatusCode().value() == 400 || exception.getStatusCode().value() == 401) {
                 throw invalidProviderToken();
             }
             throw providerUnavailable();
         } catch (RestClientException exception) {
+            log.warn("social provider=NAVER result=connection_error");
             throw providerUnavailable();
         }
     }
 
     private ApiException invalidProviderToken() {
-        return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_SOCIAL_TOKEN", "Naver Access Token이 유효하지 않습니다.");
+        return new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_PROVIDER_TOKEN", "소셜 인증 정보가 유효하지 않습니다.");
     }
 
     private ApiException providerUnavailable() {
-        return new ApiException(HttpStatus.BAD_GATEWAY, "SOCIAL_PROVIDER_UNAVAILABLE", "Naver 인증 서버에 연결할 수 없습니다.");
+        return new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PROVIDER_UNAVAILABLE", "소셜 로그인 서비스를 사용할 수 없습니다.");
     }
 
     private record NaverUserResponse(String resultcode, NaverProfile response) { }

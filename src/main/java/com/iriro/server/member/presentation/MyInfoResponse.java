@@ -3,14 +3,16 @@ package com.iriro.server.member.presentation;
 import com.iriro.server.member.domain.Member;
 import lombok.Builder;
 import lombok.Getter;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @Getter
 @Builder
 public class MyInfoResponse {
 
-    private Long memberId;
-    private String memberName;
-    private String email;
+    @Schema(example = "1") private Long memberId;
+    @Schema(example = "용용이") private String memberName;
+    @Schema(example = "user@example.com") private String email;
+    @Schema(nullable = true) private String profileImageUrl;
 
     private long totalActivityCount;
     private long totalDistanceMeters;
@@ -29,7 +31,7 @@ public class MyInfoResponse {
                 .memberId(member.getId())
                 .memberName(member.getMemberName())
                 .email(email)
-                // .profileImageUrl(member.getProfileImageUrl()) -> 현재 DB에 이미지 URL 컬럼이 없어서 오류 발생중 -> 일시적으로 생략
+                .profileImageUrl(null)
                 .totalActivityCount(totalActivityCount)
                 .totalDistanceMeters(totalDistanceMeters)
                 .earnedBadgeCount(earnedBadgeCount)

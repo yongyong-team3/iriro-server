@@ -1,6 +1,6 @@
 # 이리로 백엔드 개발 규칙
 
-- Java 21, Spring Boot 4.1.2, Gradle Wrapper, MariaDB 11.4를 사용한다.
+- Java 21, Spring Boot 4.1.2, Gradle Wrapper, MariaDB 11.2를 사용한다.
 - 기능별 패키지(`auth`, `member`, `trail`, `river`, `activity`, `favorite`, `notification`, `weather`, `badge`)에 코드를 둔다. 각 기능의 `presentation`은 HTTP·DTO·입력 검증, `application`은 유스케이스·트랜잭션, `domain`은 핵심 규칙, `infrastructure`는 DB·외부 API 구현을 맡는다.
 - API 구현 전 해당 명세의 실패·성공 테스트를 작성하고 `./gradlew test`로 확인한다.
 - DB 변경은 `src/main/resources/db/migration`의 새 Flyway 파일로 작성한다. 기존 적용 마이그레이션은 수정하지 않는다.

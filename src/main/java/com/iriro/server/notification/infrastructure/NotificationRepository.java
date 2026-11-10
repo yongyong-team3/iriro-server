@@ -21,5 +21,5 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     boolean existsByEventIdAndMember_Id(Long eventId, Long memberId);
 
-    long countByMemberIdAndIsReadFalse(Long memberId);
+    long countByMember_IdAndReadAtIsNull(Long memberId);
 }

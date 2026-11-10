@@ -10,4 +10,6 @@ public interface EmailCredentialRepository extends JpaRepository<EmailCredential
     boolean existsByEmailNormalized(String emailNormalized);
 
     Optional<EmailCredential> findByEmailNormalized(String emailNormalized);
+
+    Optional<EmailCredential> findByMemberId(Long memberId);
 }

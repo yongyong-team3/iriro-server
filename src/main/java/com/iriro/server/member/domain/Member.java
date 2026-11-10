@@ -1,12 +1,11 @@
 package com.iriro.server.member.domain;
 
 import jakarta.persistence.*;
-import lombok.Getter;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.Locale;
 
-@Getter
 @Entity
 @Table(
         name = "members",
@@ -59,9 +58,28 @@ public class Member {
         updatedAt = LocalDateTime.now(Clock.systemUTC());
     }
 
-    public void updateMemberName(String memberName) {
-        this.memberName = memberName;
-        this.memberNameKey = memberName != null ? memberName.toLowerCase() : null;
+    public Long getId() {
+        return id;
     }
 
+    public String getMemberName() {
+        return memberName;
+    }
+
+    public String getMemberNameKey() {
+        return memberNameKey;
+    }
+
+    public void updateMemberName(String memberName) {
+        this.memberName = memberName;
+        this.memberNameKey = memberName.toLowerCase(Locale.ROOT);
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
 }

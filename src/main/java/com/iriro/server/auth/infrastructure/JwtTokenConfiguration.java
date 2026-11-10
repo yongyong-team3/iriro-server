@@ -11,9 +11,9 @@ public class JwtTokenConfiguration {
 
     @Bean
     JwtTokenService jwtTokenService(
-            @Value("${iriro.auth.jwt-secret:}") String secret,
-            @Value("${iriro.auth.access-token-ttl-seconds:900}") long accessTtlSeconds,
-            @Value("${iriro.auth.refresh-token-ttl-seconds:2592000}") long refreshTtlSeconds
+            @Value("${iriro.auth.jwt-secret}") String secret,
+            @Value("${iriro.auth.access-token-ttl-seconds}") long accessTtlSeconds,
+            @Value("${iriro.auth.refresh-token-ttl-seconds}") long refreshTtlSeconds
     ) {
         return new JwtTokenService(secret, accessTtlSeconds, refreshTtlSeconds, Clock.systemUTC());
     }
