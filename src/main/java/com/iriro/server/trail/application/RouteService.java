@@ -6,6 +6,7 @@ import com.iriro.server.trail.infrastructure.RouteRepository;
 import com.iriro.server.trail.infrastructure.RouteStartPointRepository;
 import com.iriro.server.trail.infrastructure.TrailRepository;
 import com.iriro.server.trail.presentation.RouteListResponse;
+import com.iriro.server.trail.presentation.RouteDetailResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +45,16 @@ public class RouteService {
                 .map(this::item)
                 .toList();
         return new RouteListResponse(trailId, items);
+    }
+
+    @Transactional(readOnly = true)
+    public RouteDetailResponse detail(Long routeId) {
+        Route route = routes.findById(routeId).orElseThrow(() ->
+                new ApiException(HttpStatus.NOT_FOUND, "ROUTE_NOT_FOUND", "코스를 찾을 수 없습니다."));
+        RouteListResponse.Item item = item(route);
+        return new RouteDetailResponse(item.routeId(), route.getTrailId(), item.name(), item.activityTypes(),
+                item.distanceMeters(), item.estimatedDurationSeconds(), item.geometry(), item.startPoints(),
+                "UNKNOWN");
     }
 
     private RouteListResponse.Item item(Route route) {
