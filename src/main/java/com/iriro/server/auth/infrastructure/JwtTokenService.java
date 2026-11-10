@@ -68,7 +68,14 @@ public class JwtTokenService {
             long expiration = captureLong(EXPIRATION, payload);
             String type = capture(TOKEN_TYPE, payload);
             Instant expiresAt = Instant.ofEpochSecond(expiration);
-            if (!expectedType.equals(type) || !expiresAt.isAfter(clock.instant())) {
+            if (!expectedType.equals(type)) {
+                throw invalidToken();
+            }
+            if (!expiresAt.isAfter(clock.instant())) {
+                if ("refresh".equals(expectedType)) {
+                    throw new ApiException(HttpStatus.UNAUTHORIZED, "EXPIRED_REFRESH_TOKEN",
+                            "Refresh Token이 만료되었습니다.");
+                }
                 throw invalidToken();
             }
             return new TokenClaims(memberId, type, expiresAt);
