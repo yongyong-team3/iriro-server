@@ -1,7 +1,7 @@
 
 package com.iriro.server.weather.infrastructure;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -10,6 +10,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +38,7 @@ public class KmaWeatherClient {
             return Map.of();
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
 
         Map<String, Integer> result = new HashMap<>();
 
@@ -132,6 +133,12 @@ public class KmaWeatherClient {
                         "T1H",
                         (int) Math.round(item.path("obsrValue").asDouble())
                 );
+                String observedDate = item.path("baseDate").asText();
+                String observedTime = item.path("baseTime").asText();
+                if (observedDate.matches("[0-9]{8}") && observedTime.matches("[0-9]{4}")) {
+                    resultMap.put("OBSERVED_DATE", Integer.parseInt(observedDate));
+                    resultMap.put("OBSERVED_TIME", Integer.parseInt(observedTime));
+                }
 
             } else if ("PTY".equals(category)) {
                 // 강수형태
