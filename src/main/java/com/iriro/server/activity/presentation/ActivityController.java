@@ -38,7 +38,7 @@ public class ActivityController {
     }
 
     @PostMapping
-    @Operation(summary = "활동 기록 저장", description = "실제·시연 활동을 구분해 저장하고 실제 활동의 배지 획득을 갱신합니다.")
+    @Operation(summary = "활동 기록 저장", description = "실제 활동의 배지 획득을 갱신합니다. 시연 기록은 허용된 테스트 환경에서만 저장할 수 있습니다.")
     @SecurityRequirement(name = "bearerAuth")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "활동 저장 또는 동일 요청 재시도"),

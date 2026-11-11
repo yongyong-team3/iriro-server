@@ -16,6 +16,7 @@ import com.iriro.server.trail.domain.Route;
 import com.iriro.server.trail.infrastructure.RouteRepository;
 import com.iriro.server.trail.infrastructure.RouteStartPointRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +37,9 @@ public class ActivityService {
     private final BadgeService badges;
     private final ObjectMapper mapper;
 
+    @Value("${iriro.activity.allow-simulation:false}")
+    private boolean allowSimulation;
+
     public ActivityService(ActivityRepository activities, MemberRepository members, RouteRepository routes,
                            RouteStartPointRepository points, FavoriteRepository favorites, BadgeService badges,
                            ObjectMapper mapper) {
@@ -51,6 +55,7 @@ public class ActivityService {
     @Transactional
     public ActivitySaveResponse save(Long memberId, String key, ActivitySaveRequest request) {
         validateKeyAndTime(key, request);
+        if (request.isSimulated() && !allowSimulation) throw invalid();
         // 회원 단위 잠금으로 같은 키 재시도와 배지 중복 지급을 직렬화한다.
         Member member = members.findByIdForUpdate(memberId)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "인증 정보를 확인해 주세요."));

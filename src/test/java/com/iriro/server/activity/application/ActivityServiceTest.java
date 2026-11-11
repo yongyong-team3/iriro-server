@@ -14,6 +14,7 @@ import com.iriro.server.trail.infrastructure.RouteRepository;
 import com.iriro.server.trail.infrastructure.RouteStartPointRepository;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -38,6 +39,11 @@ class ActivityServiceTest {
     @Spy ObjectMapper mapper = new ObjectMapper();
     @InjectMocks ActivityService service;
 
+    @BeforeEach
+    void allowSimulationForExistingCases() {
+        ReflectionTestUtils.setField(service, "allowSimulation", true);
+    }
+
     @Test
     void simulationDoesNotAwardBadges() {
         Member member = mock(Member.class);
@@ -51,6 +57,16 @@ class ActivityServiceTest {
         service.save(1L, UUID.randomUUID().toString(), request(true));
 
         then(badges).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void productionDefaultRejectsSimulationBeforeSaving() {
+        ReflectionTestUtils.setField(service, "allowSimulation", false);
+
+        assertThatThrownBy(() -> service.save(1L, UUID.randomUUID().toString(), request(true)))
+                .isInstanceOf(ApiException.class)
+                .satisfies(error -> assertThat(((ApiException) error).getCode()).isEqualTo("INVALID_REQUEST"));
+        then(activities).shouldHaveNoInteractions();
     }
 
     @Test
