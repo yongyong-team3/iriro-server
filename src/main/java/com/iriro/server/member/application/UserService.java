@@ -99,4 +99,13 @@ public class UserService {
 
         return NicknameCheckResponse.of(memberName, isAvailable);
     }
+
+    /** USER-04: 회원 FK의 ON DELETE CASCADE가 인증·활동·기기 기록을 함께 제거한다. */
+    @Transactional
+    public void withdraw(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED_USER));
+        memberRepository.delete(member);
+        memberRepository.flush();
+    }
 }

@@ -8,6 +8,7 @@ import com.iriro.server.trail.infrastructure.TrailRepository;
 import com.iriro.server.trail.presentation.TrailStatusResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -23,10 +24,13 @@ public class TrailStatusService {
     private static final String WOLCHON_STATION_CODE = "1016607";
     private final TrailRepository trails;
     private final AiStatusClient aiStatusClient;
+    private final boolean allowReplay;
 
-    public TrailStatusService(TrailRepository trails, AiStatusClient aiStatusClient) {
+    public TrailStatusService(TrailRepository trails, AiStatusClient aiStatusClient,
+                              @Value("${iriro.ai.allow-replay:false}") boolean allowReplay) {
         this.trails = trails;
         this.aiStatusClient = aiStatusClient;
+        this.allowReplay = allowReplay;
     }
 
     @Transactional(readOnly = true)
@@ -56,7 +60,15 @@ public class TrailStatusService {
 
     private TrailStatusResponse liveStatus(Long trailId) throws Exception {
         JsonNode body = aiStatusClient.get("/live/status");
-        String dataSource = "replay".equals(text(body, "data_source")) ? "REPLAY" : "LIVE";
+        String source = text(body, "data_source");
+        if ("replay".equals(source) && !allowReplay) {
+            return unavailable(trailId, text(body.path("station"), "name"),
+                    "시연 데이터는 현재 환경에서 제공하지 않습니다. 공식 통제 미확인");
+        }
+        if (!"replay".equals(source) && !"hrfco".equals(source)) {
+            return unavailable(trailId, null, "수위 데이터 출처를 확인할 수 없습니다. 공식 통제 미확인");
+        }
+        String dataSource = "replay".equals(source) ? "REPLAY" : "LIVE";
         String stationName = text(body.path("station"), "name");
         if (!WOLCHON_STATION_CODE.equals(text(body.path("station"), "water_station_code"))) {
             return unavailable(trailId, stationName, "수위 관측소가 일치하지 않습니다. 공식 통제 미확인");

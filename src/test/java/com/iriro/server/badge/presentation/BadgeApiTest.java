@@ -37,16 +37,16 @@ class BadgeApiTest {
     void authenticatedBadgeResponseIncludesKoreanOffset() throws Exception {
         Member member = memberRepository.saveAndFlush(new Member("Tester", "tester"));
         given(badgeService.getMyBadges(member.getId())).willReturn(BadgeListResponse.of(1, List.of(
-                BadgeElementResponse.of(BadgeCode.FIRST_ACTIVITY, 1, LocalDateTime.of(2026, 11, 11, 10, 30)),
-                BadgeElementResponse.of(BadgeCode.FIVE_ACTIVITIES, 1, null),
-                BadgeElementResponse.of(BadgeCode.TEN_KM, 2400, null)
+                BadgeElementResponse.of(BadgeCode.WALK_LOVER, 20, LocalDateTime.of(2026, 11, 11, 1, 30)),
+                BadgeElementResponse.of(BadgeCode.BIKE_RIDER, 2400, null)
         )));
 
         mockMvc.perform(get("/api/v1/badges")
                         .header("Authorization", "Bearer " + jwtTokenService.issueAccessToken(member.getId()).value()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.totalCount").value(3))
+                .andExpect(jsonPath("$.data.totalCount").value(2))
                 .andExpect(jsonPath("$.data.badges[0].earnedAt").value("2026-11-11T10:30:00+09:00"))
+                .andExpect(jsonPath("$.data.badges[0].earned").value(true))
                 .andExpect(jsonPath("$.data.badges[1].earnedAt").value((Object) null));
     }
 

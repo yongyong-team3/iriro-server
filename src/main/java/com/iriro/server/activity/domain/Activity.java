@@ -66,6 +66,9 @@ public class Activity {
     @Column(name = "simulated", nullable = false)
     private boolean simulated;
 
+    @Column(name = "favorite_added", nullable = false)
+    private boolean favoriteAdded;
+
     // 중복 요청 방지 키
     @Column(name = "idempotency_key", nullable = false, length = 64)
     private String idempotencyKey;
@@ -82,7 +85,7 @@ public class Activity {
     public Activity(Member member, Long routeId, Long startPointId, Long detourId,
                     String activityType, LocalDateTime startedAt, LocalDateTime endedAt,
                     Integer elapsedSeconds, BigDecimal distanceMeters, String trackPointsJson,
-                    boolean simulated, String idempotencyKey, String requestHash) {
+                    boolean simulated, boolean favoriteAdded, String idempotencyKey, String requestHash) {
         this.member = member;
         this.routeId = routeId;
         this.startPointId = startPointId;
@@ -94,6 +97,7 @@ public class Activity {
         this.distanceMeters = distanceMeters;
         this.trackPointsJson = trackPointsJson;
         this.simulated = simulated;
+        this.favoriteAdded = favoriteAdded;
         this.idempotencyKey = idempotencyKey;
         this.requestHash = requestHash;
         this.createdAt = LocalDateTime.now();

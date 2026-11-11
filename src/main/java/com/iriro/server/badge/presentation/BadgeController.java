@@ -21,7 +21,7 @@ public class BadgeController {
     private final BadgeService badgeService;
     private final CurrentMemberProvider currentMemberProvider;
 
-    @Operation(summary = "배지 목록 조회", description = "배지 획득 현황을 조회합니다.",
+    @Operation(summary = "배지 목록 조회", description = "8개 배지의 목표·진행도·획득 여부·획득 시각을 조회합니다. 거리 단위는 m입니다. 코스 지정·다리·하천 산책로 분류가 없는 3종은 진행도 0으로 반환합니다.",
             security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping
     public ResponseEntity<ApiResponse<BadgeListResponse>> getBadges() {
