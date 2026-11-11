@@ -54,7 +54,7 @@ class NotificationApiTest {
         long trailId = insertId("INSERT INTO trails(name) VALUES ('test')");
         long eventId = insertEvent(trailId);
         Notification second = notificationRepository.saveAndFlush(new Notification(member, eventId, "RECOVERY_FORECAST", "two", "body"));
-        notificationRepository.saveAndFlush(new Notification(other, null, "INFO", "private", "body"));
+        notificationRepository.saveAndFlush(new Notification(other, eventId, "RECOVERY_FORECAST", "private", "body"));
 
         mockMvc.perform(get("/api/v1/notifications?size=1&page=0")
                         .header("Authorization", bearer(member.getId())))
@@ -82,6 +82,31 @@ class NotificationApiTest {
                         .header("Authorization", bearer(member.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(0));
+    }
+
+    @Test
+    void pagesRecoveryNotificationsInNewestFirstOrder() throws Exception {
+        Member member = member();
+        long firstTrail = insertId("INSERT INTO trails(name) VALUES ('first')");
+        long secondTrail = insertId("INSERT INTO trails(name) VALUES ('second')");
+        Notification first = notificationRepository.saveAndFlush(new Notification(member, insertEvent(firstTrail),
+                "RECOVERY_FORECAST", "first", "body"));
+        Notification second = notificationRepository.saveAndFlush(new Notification(member, insertEvent(secondTrail),
+                "RECOVERY_FORECAST", "second", "body"));
+
+        mockMvc.perform(get("/api/v1/notifications?page=0&size=1")
+                        .header("Authorization", bearer(member.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].notificationId").value(second.getId()))
+                .andExpect(jsonPath("$.data.content[0].createdAt").value(org.hamcrest.Matchers.endsWith("+09:00")))
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.totalPages").value(2))
+                .andExpect(jsonPath("$.data.hasNext").value(true));
+        mockMvc.perform(get("/api/v1/notifications?page=1&size=1")
+                        .header("Authorization", bearer(member.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[0].notificationId").value(first.getId()))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
     }
 
     @Test
