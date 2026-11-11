@@ -31,7 +31,12 @@ public class RecoveryEvent {
 
     protected RecoveryEvent() { }
 
+    public void markFirstNotified(LocalDateTime at) {
+        if (firstNotifiedAt == null) firstNotifiedAt = at;
+    }
+
     public Long getId() { return id; }
     public Long getTrailId() { return trailId; }
     public LocalDateTime getStartedAt() { return startedAt; }
+    public LocalDateTime getFirstNotifiedAt() { return firstNotifiedAt; }
 }
