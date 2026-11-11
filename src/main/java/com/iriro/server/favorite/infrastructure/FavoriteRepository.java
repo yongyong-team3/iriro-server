@@ -24,4 +24,9 @@ public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
             Long memberId,
             Long routeId
     );
+
+    Optional<Favorite> findByIdAndMemberId(
+            Long favoriteId,
+            Long memberId
+    );
 }

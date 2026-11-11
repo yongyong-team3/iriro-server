@@ -98,4 +98,38 @@ public class FavoriteController {
                 ApiResponse.success("즐겨찾기에 저장되었습니다.", responseData)
         );
     }
+    /**
+     * FAV-03 즐겨찾기 삭제
+     */
+    @Operation(
+            summary = "즐겨찾기 삭제",
+            description = "내가 저장한 코스 즐겨찾기를 해제합니다."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "204",
+                    description = "즐겨찾기 삭제 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "401",
+                    description = "인증 실패"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "즐겨찾기를 찾을 수 없음"
+            )
+    })
+    @DeleteMapping("/{favoriteId}")
+    public ResponseEntity<Void> deleteFavorite(
+            @PathVariable Long favoriteId
+    ) {
+
+        favoriteService.deleteFavorite(
+                currentMemberProvider.requireMemberId(),
+                favoriteId
+        );
+
+        return ResponseEntity.noContent().build();
+    }
 }

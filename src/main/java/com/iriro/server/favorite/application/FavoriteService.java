@@ -121,4 +121,35 @@ public class FavoriteService {
                     );
                 });
     }
+    /**
+     * FAV-03 즐겨찾기 삭제
+     */
+    @Transactional
+    public void deleteFavorite(Long memberId, Long favoriteId) {
+
+        // 1. 회원 존재 여부 확인
+        if (memberId == null || !memberRepository.existsById(memberId)) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
+        }
+
+        // 2. 본인의 즐겨찾기 조회
+        Favorite favorite = favoriteRepository
+                .findByIdAndMemberId(favoriteId, memberId)
+                .orElse(null);
+
+        // 3. 본인의 즐겨찾기가 아닌 경우 확인
+        if (favorite == null) {
+
+            // 실제 존재하는 다른 회원의 즐겨찾기라면 404
+            if (favoriteRepository.existsById(favoriteId)) {
+                throw new CustomException(ErrorCode.FAVORITE_NOT_FOUND);
+            }
+
+            // 이미 삭제된 즐겨찾기라면 재요청이므로 성공 처리
+            return;
+        }
+
+        // 4. 즐겨찾기 삭제
+        favoriteRepository.delete(favorite);
+    }
 }
