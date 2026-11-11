@@ -1,8 +1,8 @@
 package com.iriro.server.activity.application;
 
 
-import com.iriro.server.activity.presentation.ActivityListResponse;
-import com.iriro.server.activity.presentation.ActivityResponse;
+import tools.jackson.databind.JsonNode;
+import com.iriro.server.activity.presentation.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -10,8 +10,6 @@ import org.springframework.data.domain.Sort;
 import tools.jackson.databind.ObjectMapper;
 import com.iriro.server.activity.domain.Activity;
 import com.iriro.server.activity.infrastructure.ActivityRepository;
-import com.iriro.server.activity.presentation.ActivityCreateRequest;
-import com.iriro.server.activity.presentation.ActivityCreateResponse;
 import com.iriro.server.common.CustomException;
 import com.iriro.server.common.ErrorCode;
 import com.iriro.server.favorite.application.FavoriteService;
@@ -24,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -381,5 +380,100 @@ public class ActivityService {
 
         // 9. 페이징 응답 반환
         return ActivityListResponse.from(responsePage);
+    }
+    /**
+     * ACT-03 활동 기록 상세 조회
+     */
+    public ActivityDetailResponse getActivityDetail(
+            Long memberId,
+            Long activityId
+    ) {
+
+        // 1. 활동 ID와 회원 ID로 본인 기록 조회
+        Activity activity = activityRepository
+                .findByIdAndMemberId(activityId, memberId)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.ACTIVITY_NOT_FOUND)
+                );
+
+        // 2. 코스 이름 조회
+        String routeName = routeRepository.findById(activity.getRouteId())
+                .map(route -> route.getName())
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.ROUTE_NOT_FOUND)
+                );
+
+        // 3. 저장된 GPS 경로를 GeoJSON으로 변환
+        ActivityDetailResponse.Geometry geometry =
+                convertToGeometry(activity.getTrackPointsJson());
+
+        // 4. 상세 응답 생성
+        return ActivityDetailResponse.from(
+                activity,
+                routeName,
+                geometry
+        );
+    }
+
+    /**
+     * GPS 경로 JSON -> GeoJSON LineString
+     *
+     * 좌표 순서:
+     * [longitude, latitude]
+     *
+     * 점이 2개 미만이면 null 반환
+     */
+    private ActivityDetailResponse.Geometry convertToGeometry(
+            String trackPointsJson
+    ) {
+
+        try {
+
+            JsonNode points = objectMapper.readTree(trackPointsJson);
+
+            // 배열이 아니거나 점이 2개 미만이면 geometry 없음
+            if (points == null || !points.isArray() || points.size() < 2) {
+                return null;
+            }
+
+            List<List<Double>> coordinates = new ArrayList<>();
+
+            for (JsonNode point : points) {
+
+                JsonNode latitudeNode = point.get("latitude");
+                JsonNode longitudeNode = point.get("longitude");
+
+                if (latitudeNode == null ||
+                        longitudeNode == null ||
+                        !latitudeNode.isNumber() ||
+                        !longitudeNode.isNumber()) {
+
+                    return null;
+                }
+
+                double latitude = latitudeNode.asDouble();
+                double longitude = longitudeNode.asDouble();
+
+                // GeoJSON 좌표 순서는 경도, 위도
+                coordinates.add(
+                        List.of(longitude, latitude)
+                );
+            }
+
+            // 유효한 좌표가 2개 미만이면 null
+            if (coordinates.size() < 2) {
+                return null;
+            }
+
+            return ActivityDetailResponse.Geometry.builder()
+                    .type("LineString")
+                    .coordinates(coordinates)
+                    .build();
+
+        } catch (Exception e) {
+
+            // 저장된 GPS JSON이 손상된 경우 geometry를 제공하지 않음
+            return null;
+        }
     }
 }

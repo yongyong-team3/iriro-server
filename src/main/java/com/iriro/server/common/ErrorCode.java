@@ -30,7 +30,7 @@ public enum ErrorCode {
 
     // Activity
     IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "이미 처리한 요청과 내용이 다릅니다."),
-
+    ACTIVITY_NOT_FOUND(HttpStatus.NOT_FOUND, "ACTIVITY_NOT_FOUND", "활동 기록을 찾을 수 없습니다."),
     START_POINT_NOT_FOUND(HttpStatus.NOT_FOUND, "NOT_FOUND", "대상을 찾을 수 없습니다."),
 
     // Auth & User Validation

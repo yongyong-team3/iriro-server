@@ -97,4 +97,32 @@ public class ActivityController {
                 )
         );
     }
+    /**
+     * ACT-03 활동 기록 상세 조회
+     */
+    @Operation(
+            summary = "활동 기록 상세 조회",
+            description = "활동 기록의 상세 정보와 GPS 이동 경로를 조회합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @GetMapping("/{activityId}")
+    public ResponseEntity<ApiResponse<ActivityDetailResponse>> getActivityDetail(
+            @PathVariable Long activityId
+    ) {
+
+        Long currentMemberId = currentMemberProvider.requireMemberId();
+
+        ActivityDetailResponse responseData =
+                activityService.getActivityDetail(
+                        currentMemberId,
+                        activityId
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "조회되었습니다.",
+                        responseData
+                )
+        );
+    }
 }

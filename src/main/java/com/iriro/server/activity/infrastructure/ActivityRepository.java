@@ -38,4 +38,8 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             LocalDateTime end,
             Pageable pageable
     );
+    Optional<Activity> findByIdAndMemberId(
+            Long activityId,
+            Long memberId
+    );
 }
