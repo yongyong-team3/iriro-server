@@ -49,8 +49,8 @@ class BadgeServiceTest {
     @DisplayName("배지 목록 조회 성공 - 획득한 배지가 없는 경우")
     void getMyBadges_Success_NoEarnedBadges() {
         // given
-        given(activityRepository.countByMemberId(memberId)).willReturn(0L);
-        given(activityRepository.sumDistanceByMemberId(memberId)).willReturn(0L);
+        given(activityRepository.countByMemberIdAndSimulatedFalse(memberId)).willReturn(0L);
+        given(activityRepository.sumRealDistanceByMemberId(memberId)).willReturn(0L);
         given(badgeAwardRepository.findByMemberId(memberId)).willReturn(List.of());
 
         // when
@@ -73,8 +73,8 @@ class BadgeServiceTest {
     @DisplayName("배지 목록 조회 성공 - 활동 횟수에 따른 진행도 계산")
     void getMyBadges_Success_ActivityProgress() {
         // given
-        given(activityRepository.countByMemberId(memberId)).willReturn(5L);
-        given(activityRepository.sumDistanceByMemberId(memberId)).willReturn(3000L);
+        given(activityRepository.countByMemberIdAndSimulatedFalse(memberId)).willReturn(5L);
+        given(activityRepository.sumRealDistanceByMemberId(memberId)).willReturn(3000L);
         given(badgeAwardRepository.findByMemberId(memberId)).willReturn(List.of());
 
         // when
@@ -119,8 +119,8 @@ class BadgeServiceTest {
 
         // 실제 획득 시각을 검증하기 위해 리플렉션 대신 아래와 같이
         // 서비스 응답에서 엔티티에 저장된 시각을 사용합니다.
-        given(activityRepository.countByMemberId(memberId)).willReturn(5L);
-        given(activityRepository.sumDistanceByMemberId(memberId)).willReturn(10000L);
+        given(activityRepository.countByMemberIdAndSimulatedFalse(memberId)).willReturn(5L);
+        given(activityRepository.sumRealDistanceByMemberId(memberId)).willReturn(10000L);
         given(badgeAwardRepository.findByMemberId(memberId))
                 .willReturn(List.of(firstAward, fiveAward));
 
@@ -158,8 +158,8 @@ class BadgeServiceTest {
     @DisplayName("배지 목록 조회 성공 - 누적 거리가 목표를 초과한 경우")
     void getMyBadges_Success_DistanceExceedsTarget() {
         // given
-        given(activityRepository.countByMemberId(memberId)).willReturn(10L);
-        given(activityRepository.sumDistanceByMemberId(memberId)).willReturn(15000L);
+        given(activityRepository.countByMemberIdAndSimulatedFalse(memberId)).willReturn(10L);
+        given(activityRepository.sumRealDistanceByMemberId(memberId)).willReturn(15000L);
         given(badgeAwardRepository.findByMemberId(memberId)).willReturn(List.of());
 
         // when

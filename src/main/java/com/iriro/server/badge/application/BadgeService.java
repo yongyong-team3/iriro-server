@@ -39,8 +39,8 @@ public class BadgeService {
         }
 
         // 2. 회원의 현재 활동 통계 조회 (활동 기록이 0개일 때 SUM NULL 처리 포함)
-        long totalActivityCount = activityRepository.countByMemberId(memberId);
-        Long totalDistanceMetersNullSafe = activityRepository.sumDistanceByMemberId(memberId);
+        long totalActivityCount = activityRepository.countByMemberIdAndSimulatedFalse(memberId);
+        Long totalDistanceMetersNullSafe = activityRepository.sumRealDistanceByMemberId(memberId);
         long totalDistanceMeters = Optional.ofNullable(totalDistanceMetersNullSafe).orElse(0L);
 
         // 3. 회원의 배지 획득 내역 Map 변환 (BadgeCode -> earnedAt)
