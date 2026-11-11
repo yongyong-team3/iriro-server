@@ -85,9 +85,15 @@ public class ActivityController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "INVALID_REQUEST"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "UNAUTHORIZED")})
     public ResponseEntity<ApiResponse<ActivityListResponse>> list(
+            @Parameter(description = "조회 월(YYYY-MM), 생략 시 한국 시간 현재 월", example = "2026-11")
             @RequestParam(required = false) String month,
+            @Parameter(description = "활동 유형", schema = @io.swagger.v3.oas.annotations.media.Schema(
+                    allowableValues = {"WALK", "RUN", "BIKE"}))
             @RequestParam(required = false) String activityType,
+            @Parameter(description = "0부터 시작", schema = @io.swagger.v3.oas.annotations.media.Schema(minimum = "0"))
             @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "페이지 크기 1~100", schema = @io.swagger.v3.oas.annotations.media.Schema(
+                    minimum = "1", maximum = "100"))
             @RequestParam(defaultValue = "20") int size) {
         return ResponseEntity.ok(ApiResponse.success("조회되었습니다.",
                 queryService.list(currentMemberProvider.requireMemberId(), month, activityType, page, size)));
@@ -110,7 +116,9 @@ public class ActivityController {
     @ApiResponses({@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "주간 통계"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "INVALID_REQUEST"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "UNAUTHORIZED")})
-    public ResponseEntity<ApiResponse<WeeklyActivityStatsResponse>> weekly(@RequestParam(required = false) String date) {
+    public ResponseEntity<ApiResponse<WeeklyActivityStatsResponse>> weekly(
+            @Parameter(description = "조회 기준일(YYYY-MM-DD), 생략 시 한국 시간 오늘", example = "2026-11-09")
+            @RequestParam(required = false) String date) {
         return ResponseEntity.ok(ApiResponse.success("조회되었습니다.",
                 queryService.weekly(currentMemberProvider.requireMemberId(), date)));
     }
@@ -121,7 +129,9 @@ public class ActivityController {
     @ApiResponses({@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "월간 통계"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "INVALID_REQUEST"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "UNAUTHORIZED")})
-    public ResponseEntity<ApiResponse<MonthlyActivityStatsResponse>> monthly(@RequestParam(required = false) String month) {
+    public ResponseEntity<ApiResponse<MonthlyActivityStatsResponse>> monthly(
+            @Parameter(description = "조회 월(YYYY-MM), 생략 시 한국 시간 현재 월", example = "2026-11")
+            @RequestParam(required = false) String month) {
         return ResponseEntity.ok(ApiResponse.success("조회되었습니다.",
                 queryService.monthly(currentMemberProvider.requireMemberId(), month)));
     }
