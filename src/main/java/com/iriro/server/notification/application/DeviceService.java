@@ -23,14 +23,14 @@ public class DeviceService {
     }
 
     @Transactional
-    public DeviceResponse register(Long memberId, DeviceRegistrationRequest request) {
+    public Registration register(Long memberId, DeviceRegistrationRequest request) {
         Device device = deviceRepository.findByInstallationId(request.installationId()).orElse(null);
         if (device != null) {
             if (!device.getMember().getId().equals(memberId)) {
                 throw new ApiException(HttpStatus.CONFLICT, "INSTALLATION_IN_USE", "다른 회원에게 등록된 기기입니다.", "installationId");
             }
             device.updateRegistration(request.platform(), request.expoPushToken());
-            return toResponse(device);
+            return new Registration(toResponse(device), false);
         }
 
         Device newDevice = new Device(
@@ -40,7 +40,7 @@ public class DeviceService {
                 request.expoPushToken()
         );
         try {
-            return toResponse(deviceRepository.saveAndFlush(newDevice));
+            return new Registration(toResponse(deviceRepository.saveAndFlush(newDevice)), true);
         } catch (DataIntegrityViolationException exception) {
             throw new ApiException(HttpStatus.CONFLICT, "INSTALLATION_IN_USE", "이미 등록된 기기입니다.", "installationId");
         }
@@ -50,14 +50,16 @@ public class DeviceService {
     public void unregister(Long memberId, Long deviceId) {
         Device device = deviceRepository.findByIdAndMember_Id(deviceId, memberId)
                 .orElseThrow(this::notFound);
-        deviceRepository.delete(device);
+        device.deactivatePushToken();
     }
 
     private DeviceResponse toResponse(Device device) {
-        return new DeviceResponse(device.getId(), device.getInstallationId(), device.getPlatform());
+        return new DeviceResponse(device.getId());
     }
 
     private ApiException notFound() {
-        return new ApiException(HttpStatus.NOT_FOUND, "DEVICE_NOT_FOUND", "등록된 기기를 찾을 수 없습니다.");
+        return new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "대상을 찾을 수 없습니다.");
     }
+
+    public record Registration(DeviceResponse response, boolean created) { }
 }

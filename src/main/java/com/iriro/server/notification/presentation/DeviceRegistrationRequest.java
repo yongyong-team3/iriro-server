@@ -13,6 +13,8 @@ public record DeviceRegistrationRequest(
         @Schema(example = "550e8400-e29b-41d4-a716-446655440000")
         String installationId,
         @NotNull @Schema(example = "ANDROID") DevicePlatform platform,
-        @NotBlank @Size(max = 255) @Schema(example = "ExponentPushToken[example]") String expoPushToken
+        @NotBlank @Size(max = 255)
+        @Pattern(regexp = "^(Expo|Exponent)PushToken\\[[^\\[\\]]+\\]$")
+        @Schema(example = "ExpoPushToken[example]") String expoPushToken
 ) {
 }

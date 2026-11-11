@@ -153,16 +153,20 @@ class NotificationApiTest {
 
         mockMvc.perform(post("/api/v1/devices").header("Authorization", bearer(member.getId()))
                         .contentType(MediaType.APPLICATION_JSON).content(firstRequest))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.installationId").value(installationId))
-                .andExpect(jsonPath("$.data.platform").value("IOS"));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.message").value("기기가 등록되었습니다."))
+                .andExpect(jsonPath("$.data.deviceId").isNumber())
+                .andExpect(jsonPath("$.data.installationId").doesNotExist())
+                .andExpect(jsonPath("$.data.platform").doesNotExist());
         mockMvc.perform(post("/api/v1/devices").header("Authorization", bearer(member.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"installationId\":\"" + installationId + "\",\"platform\":\"ANDROID\",\"expoPushToken\":\"ExponentPushToken[second]\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.platform").value("ANDROID"));
+                .andExpect(jsonPath("$.data.deviceId").isNumber());
         Device registered = deviceRepository.findByInstallationId(installationId).orElseThrow();
         assertThat(registered.getExpoPushToken()).isEqualTo("ExponentPushToken[second]");
+        assertThat(deviceRepository.count()).isEqualTo(1);
 
         mockMvc.perform(post("/api/v1/devices").header("Authorization", bearer(other.getId()))
                         .contentType(MediaType.APPLICATION_JSON).content(firstRequest))
@@ -175,15 +179,44 @@ class NotificationApiTest {
         Member member = member();
         Member other = member();
         Device device = deviceRepository.saveAndFlush(new Device(member, UUID.randomUUID().toString(), DevicePlatform.IOS, "token"));
+        Device remaining = deviceRepository.saveAndFlush(new Device(member, UUID.randomUUID().toString(), DevicePlatform.ANDROID, "remaining-token"));
         Device foreign = deviceRepository.saveAndFlush(new Device(other, UUID.randomUUID().toString(), DevicePlatform.IOS, "token"));
 
         mockMvc.perform(delete("/api/v1/devices/{id}", device.getId()).header("Authorization", bearer(member.getId())))
                 .andExpect(status().isNoContent())
                 .andExpect(content().string(""));
-        assertThat(deviceRepository.findById(device.getId())).isEmpty();
+        assertThat(deviceRepository.findById(device.getId()).orElseThrow().getExpoPushToken()).isNull();
+        mockMvc.perform(delete("/api/v1/devices/{id}", device.getId()).header("Authorization", bearer(member.getId())))
+                .andExpect(status().isNoContent());
+        assertThat(deviceRepository.findById(remaining.getId()).orElseThrow().getExpoPushToken())
+                .isEqualTo("remaining-token");
         mockMvc.perform(delete("/api/v1/devices/{id}", foreign.getId()).header("Authorization", bearer(member.getId())))
                 .andExpect(status().isNotFound());
         assertThat(deviceRepository.findById(foreign.getId())).isPresent();
+        mockMvc.perform(post("/api/v1/devices").header("Authorization", bearer(member.getId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"installationId\":\"" + device.getInstallationId()
+                                + "\",\"platform\":\"IOS\",\"expoPushToken\":\"ExpoPushToken[renewed]\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deviceId").value(device.getId()));
+        assertThat(deviceRepository.findById(device.getId()).orElseThrow().getExpoPushToken())
+                .isEqualTo("ExpoPushToken[renewed]");
+    }
+
+    @Test
+    void rejectsInvalidDeviceRegistration() throws Exception {
+        Member member = member();
+        String uuid = UUID.randomUUID().toString();
+        for (String body : new String[]{
+                "{\"installationId\":\"bad\",\"platform\":\"IOS\",\"expoPushToken\":\"ExpoPushToken[x]\"}",
+                "{\"installationId\":\"" + uuid + "\",\"platform\":\"OTHER\",\"expoPushToken\":\"ExpoPushToken[x]\"}",
+                "{\"installationId\":\"" + uuid + "\",\"platform\":\"IOS\"}",
+                "{\"installationId\":\"" + uuid + "\",\"platform\":\"IOS\",\"expoPushToken\":\"invalid\"}"}) {
+            mockMvc.perform(post("/api/v1/devices").header("Authorization", bearer(member.getId()))
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        }
     }
 
     @Test

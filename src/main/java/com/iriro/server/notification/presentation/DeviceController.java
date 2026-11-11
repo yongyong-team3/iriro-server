@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,13 +35,15 @@ public class DeviceController {
 
     @PostMapping
     @Operation(summary = "Expo 푸시 기기 등록")
-    @ApiResponses({@ApiResponse(responseCode = "200", description = "기기 등록"),
+    @ApiResponses({@ApiResponse(responseCode = "201", description = "새 기기 등록"),
+            @ApiResponse(responseCode = "200", description = "기존 기기 갱신"),
             @ApiResponse(responseCode = "400", description = "입력 오류"),
             @ApiResponse(responseCode = "401", description = "인증 실패"),
             @ApiResponse(responseCode = "409", description = "다른 회원의 기기")})
     public ResponseEntity<ApiSuccessResponse<DeviceResponse>> register(@Valid @RequestBody DeviceRegistrationRequest request) {
-        DeviceResponse response = deviceService.register(currentMemberProvider.requireMemberId(), request);
-        return ResponseEntity.ok(ApiSuccessResponse.of("DEVICE_REGISTER_SUCCESS", "기기를 등록했습니다.", response));
+        DeviceService.Registration result = deviceService.register(currentMemberProvider.requireMemberId(), request);
+        return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
+                .body(ApiSuccessResponse.of("SUCCESS", "기기가 등록되었습니다.", result.response()));
     }
 
     @DeleteMapping("/{deviceId}")
