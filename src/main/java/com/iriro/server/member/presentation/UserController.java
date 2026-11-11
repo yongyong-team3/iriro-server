@@ -55,4 +55,14 @@ public class UserController {
         NicknameCheckResponse responseData = userService.checkNicknameAvailability(request.getMemberName());
         return ResponseEntity.ok(ApiResponse.success("조회되었습니다.", responseData));
     }
+
+    @Operation(summary = "회원 탈퇴", description = "계정과 연결된 인증·활동·기기 기록을 삭제합니다.")
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({@io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "탈퇴 완료"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")})
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> withdraw() {
+        userService.withdraw(currentMemberProvider.requireMemberId());
+        return ResponseEntity.noContent().build();
+    }
 }
