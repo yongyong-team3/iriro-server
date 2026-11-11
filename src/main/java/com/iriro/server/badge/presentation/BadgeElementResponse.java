@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 @Getter
 @Builder
@@ -16,9 +18,8 @@ public class BadgeElementResponse {
     private long target;
     private long progress;
 
-    // LocalDateTime 포맷에서 XXX 제거
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime earnedAt;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
+    private OffsetDateTime earnedAt;
 
     public static BadgeElementResponse of(BadgeCode badgeCode, long progress, LocalDateTime earnedAt) {
         return BadgeElementResponse.builder()
@@ -26,7 +27,8 @@ public class BadgeElementResponse {
                 .name(badgeCode.getName())
                 .target(badgeCode.getTarget())
                 .progress(progress)
-                .earnedAt(earnedAt)
+                .earnedAt(earnedAt == null ? null
+                        : earnedAt.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime())
                 .build();
     }
 }
