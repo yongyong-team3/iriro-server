@@ -2,6 +2,8 @@ package com.iriro.server.badge.infrastructure;
 
 import com.iriro.server.badge.domain.BadgeAward;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -11,5 +13,6 @@ public interface BadgeAwardRepository extends JpaRepository<BadgeAward, Long> {
     long countByMemberId(Long memberId);
 
     // 특정 회원이 획득한 배지 획득 목록 전체 조회
-    List<BadgeAward> findByMemberId(Long memberId);
+    @Query("SELECT b FROM BadgeAward b WHERE b.member.id = :memberId")
+    List<BadgeAward> findByMemberId(@Param("memberId") Long memberId);
 }

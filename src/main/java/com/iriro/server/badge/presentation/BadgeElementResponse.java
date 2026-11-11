@@ -16,7 +16,8 @@ public class BadgeElementResponse {
     private long target;
     private long progress;
 
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ssXXX", timezone = "Asia/Seoul")
+    // LocalDateTime 포맷에서 XXX 제거
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime earnedAt;
 
     public static BadgeElementResponse of(BadgeCode badgeCode, long progress, LocalDateTime earnedAt) {
