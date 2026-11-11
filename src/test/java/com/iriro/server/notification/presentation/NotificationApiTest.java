@@ -115,16 +115,33 @@ class NotificationApiTest {
 
         mockMvc.perform(get("/api/v1/notification-settings").header("Authorization", bearer(member.getId())))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.message").value("조회되었습니다."))
                 .andExpect(jsonPath("$.data.recoveryForecastEnabled").value(false));
         mockMvc.perform(patch("/api/v1/notification-settings")
                         .header("Authorization", bearer(member.getId()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"recoveryForecastEnabled\":true}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.recoveryForecastEnabled").value(true));
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.message").value("알림 설정이 변경되었습니다."))
+                .andExpect(jsonPath("$.data.recoveryForecastEnabled").value(true))
+                .andExpect(jsonPath("$.data.updatedAt").doesNotExist());
         mockMvc.perform(get("/api/v1/notification-settings").header("Authorization", bearer(other.getId())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.recoveryForecastEnabled").value(false));
+    }
+
+    @Test
+    void rejectsMissingOrInvalidNotificationSetting() throws Exception {
+        Member member = member();
+        for (String body : new String[]{"{}", "{\"recoveryForecastEnabled\":\"yes\"}"}) {
+            mockMvc.perform(patch("/api/v1/notification-settings")
+                            .header("Authorization", bearer(member.getId()))
+                            .contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+        }
     }
 
     @Test
