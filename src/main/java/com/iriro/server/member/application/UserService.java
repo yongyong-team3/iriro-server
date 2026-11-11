@@ -41,8 +41,8 @@ public class UserService {
                 .orElse(null);
 
         // 2. 활동 및 지표 집계 데이터 조회 (집계 데이터가 없으면 기본값 0 처리)
-        long totalActivityCount = activityRepository.countByMemberId(memberId);
-        long totalDistanceMeters = activityRepository.sumDistanceByMemberId(memberId);
+        long totalActivityCount = activityRepository.countByMemberIdAndSimulatedFalse(memberId);
+        long totalDistanceMeters = activityRepository.sumRealDistanceByMemberId(memberId);
         long earnedBadgeCount = badgeAwardRepository.countByMemberId(memberId);
         long unreadNotificationCount = notificationRepository.countByMember_IdAndReadAtIsNull(memberId);
 

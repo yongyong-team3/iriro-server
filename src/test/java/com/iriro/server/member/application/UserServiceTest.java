@@ -63,8 +63,8 @@ class UserServiceTest {
 
             given(memberRepository.findById(1L)).willReturn(Optional.of(member));
             given(emailCredentialRepository.findByMemberId(1L)).willReturn(Optional.of(credential));
-            given(activityRepository.countByMemberId(1L)).willReturn(10L);
-            given(activityRepository.sumDistanceByMemberId(1L)).willReturn(42_000L);
+            given(activityRepository.countByMemberIdAndSimulatedFalse(1L)).willReturn(10L);
+            given(activityRepository.sumRealDistanceByMemberId(1L)).willReturn(42_000L);
             given(badgeAwardRepository.countByMemberId(1L)).willReturn(3L);
             given(notificationRepository.countByMember_IdAndReadAtIsNull(1L)).willReturn(2L);
 
@@ -88,8 +88,8 @@ class UserServiceTest {
             Member member = createMember(1L, "Runner");
             given(memberRepository.findById(1L)).willReturn(Optional.of(member));
             given(emailCredentialRepository.findByMemberId(1L)).willReturn(Optional.empty());
-            given(activityRepository.countByMemberId(1L)).willReturn(0L);
-            given(activityRepository.sumDistanceByMemberId(1L)).willReturn(0L);
+            given(activityRepository.countByMemberIdAndSimulatedFalse(1L)).willReturn(0L);
+            given(activityRepository.sumRealDistanceByMemberId(1L)).willReturn(0L);
             given(badgeAwardRepository.countByMemberId(1L)).willReturn(0L);
             given(notificationRepository.countByMember_IdAndReadAtIsNull(1L)).willReturn(0L);
 

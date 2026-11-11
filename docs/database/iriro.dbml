@@ -114,12 +114,14 @@ Table activities {
   elapsed_seconds int [not null]
   distance_meters decimal(10,2) [not null]
   track_points_json longtext [not null]
+  simulated boolean [not null, default: false, note: '20배속 시연 등 가상 활동. 실제 통계·배지에서 제외']
   idempotency_key varchar(64) [not null]
   request_hash char(64) [not null]
   created_at datetime [not null]
   indexes {
     (member_id, idempotency_key) [unique]
     (member_id, started_at)
+    (member_id, simulated, started_at)
     (route_id, start_point_id)
     (route_id, activity_type)
     (route_id, detour_id)
