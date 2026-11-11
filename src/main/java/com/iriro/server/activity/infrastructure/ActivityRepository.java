@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface ActivityRepository extends JpaRepository<Activity, Long> {
@@ -40,6 +41,16 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     );
     Optional<Activity> findByIdAndMemberId(
             Long activityId,
+            Long memberId
+    );
+
+    List<Activity> findByMemberIdAndSimulatedFalseAndStartedAtGreaterThanEqualAndStartedAtLessThanOrderByStartedAtDesc(
+            Long memberId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
+
+    List<Activity> findTop3ByMemberIdAndSimulatedFalseOrderByStartedAtDescIdDesc(
             Long memberId
     );
 }

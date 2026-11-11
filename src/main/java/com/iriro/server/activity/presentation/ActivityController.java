@@ -125,4 +125,36 @@ public class ActivityController {
                 )
         );
     }
+    /**
+     * ACT-04 주간 활동 통계 조회
+     */
+    @Operation(
+            summary = "주간 활동 통계 조회",
+            description = "주간 활동 거리, 횟수, 시간 및 최근 활동을 조회합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @GetMapping("/stats/weekly")
+    public ResponseEntity<ApiResponse<ActivityWeeklyStatsResponse>> getWeeklyStats(
+
+            @Parameter(description = "조회 기준일 (yyyy-MM-dd)", example = "2026-11-11")
+            @RequestParam(required = false)
+            String date
+
+    ) {
+
+        Long currentMemberId = currentMemberProvider.requireMemberId();
+
+        ActivityWeeklyStatsResponse responseData =
+                activityService.getWeeklyStats(
+                        currentMemberId,
+                        date
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "조회되었습니다.",
+                        responseData
+                )
+        );
+    }
 }

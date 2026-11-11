@@ -22,10 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -475,5 +473,177 @@ public class ActivityService {
             // 저장된 GPS JSON이 손상된 경우 geometry를 제공하지 않음
             return null;
         }
+    }
+    /**
+     * ACT-04 주간 활동 통계 조회
+     */
+    public ActivityWeeklyStatsResponse getWeeklyStats(
+            Long memberId,
+            String date
+    ) {
+
+        // 1. 회원 확인
+        if (memberId == null || !memberRepository.existsById(memberId)) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
+        }
+
+        // 2. 조회 기준일 설정
+        LocalDate targetDate;
+
+        try {
+            targetDate = (date == null || date.isBlank())
+                    ? LocalDate.now(ZoneId.of("Asia/Seoul"))
+                    : LocalDate.parse(date);
+
+        } catch (DateTimeException e) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // 3. 해당 주의 월요일과 일요일 계산
+        LocalDate weekStartDate = targetDate.with(
+                TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)
+        );
+
+        LocalDate weekEndDate = weekStartDate.plusDays(6);
+
+        // 4. 한국 시간 기준 주간 범위를 UTC로 변환
+        ZoneOffset kst = ZoneOffset.ofHours(9);
+
+        LocalDateTime start = weekStartDate
+                .atStartOfDay()
+                .atOffset(kst)
+                .withOffsetSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+
+        // 다음 주 월요일 00:00은 조회에서 제외
+        LocalDateTime end = weekStartDate
+                .plusDays(7)
+                .atStartOfDay()
+                .atOffset(kst)
+                .withOffsetSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+
+        // 5. 시연 기록을 제외한 해당 주 활동 조회
+        List<Activity> activities = activityRepository
+                .findByMemberIdAndSimulatedFalseAndStartedAtGreaterThanEqualAndStartedAtLessThanOrderByStartedAtDesc(
+                        memberId,
+                        start,
+                        end
+                );
+
+        // 6. 일별 통계 초기화 (월요일 ~ 일요일 7일)
+        Map<LocalDate, DailyAccumulator> dailyMap = new LinkedHashMap<>();
+
+        for (int i = 0; i < 7; i++) {
+
+            LocalDate currentDate = weekStartDate.plusDays(i);
+
+            dailyMap.put(
+                    currentDate,
+                    new DailyAccumulator()
+            );
+        }
+
+        // 7. 주간 전체 통계 계산
+        long activityCount = 0;
+        long elapsedSeconds = 0;
+
+        BigDecimal distanceMeters = BigDecimal.ZERO;
+
+        for (Activity activity : activities) {
+
+            // DB UTC -> 한국 날짜
+            LocalDate activityDate = activity.getStartedAt()
+                    .atOffset(ZoneOffset.UTC)
+                    .withOffsetSameInstant(kst)
+                    .toLocalDate();
+
+            DailyAccumulator daily = dailyMap.get(activityDate);
+
+            // 해당 날짜의 통계
+            if (daily != null) {
+
+                daily.activityCount++;
+
+                daily.distanceMeters = daily.distanceMeters.add(
+                        activity.getDistanceMeters()
+                );
+
+                daily.elapsedSeconds += activity.getElapsedSeconds();
+            }
+
+            // 주간 합계
+            activityCount++;
+
+            distanceMeters = distanceMeters.add(
+                    activity.getDistanceMeters()
+            );
+
+            elapsedSeconds += activity.getElapsedSeconds();
+        }
+
+        // 8. 일별 통계 DTO 변환
+        List<ActivityWeeklyStatsResponse.Daily> dailyResponse =
+                dailyMap.entrySet()
+                        .stream()
+                        .map(entry ->
+                                ActivityWeeklyStatsResponse.Daily.builder()
+                                        .date(entry.getKey())
+                                        .activityCount(entry.getValue().activityCount)
+                                        .distanceMeters(entry.getValue().distanceMeters)
+                                        .elapsedSeconds(entry.getValue().elapsedSeconds)
+                                        .build()
+                        )
+                        .toList();
+
+        // 9. 최근 활동 3건 생성
+        List<ActivityWeeklyStatsResponse.RecentActivity> recentActivities =
+                activities.stream()
+                        .limit(3)
+                        .map(activity -> {
+
+                            String routeName = routeRepository
+                                    .findById(activity.getRouteId())
+                                    .map(route -> route.getName())
+                                    .orElseThrow(() ->
+                                            new CustomException(ErrorCode.ROUTE_NOT_FOUND)
+                                    );
+
+                            OffsetDateTime startedAt = activity.getStartedAt()
+                                    .atOffset(ZoneOffset.UTC)
+                                    .withOffsetSameInstant(kst);
+
+                            return ActivityWeeklyStatsResponse.RecentActivity.builder()
+                                    .activityId(activity.getId())
+                                    .routeName(routeName)
+                                    .activityType(activity.getActivityType())
+                                    .distanceMeters(activity.getDistanceMeters())
+                                    .startedAt(startedAt)
+                                    .build();
+                        })
+                        .toList();
+
+        // 10. 최종 응답 반환
+        return ActivityWeeklyStatsResponse.builder()
+                .weekStartDate(weekStartDate)
+                .weekEndDate(weekEndDate)
+                .activityCount(activityCount)
+                .distanceMeters(distanceMeters)
+                .elapsedSeconds(elapsedSeconds)
+                .daily(dailyResponse)
+                .recentActivities(recentActivities)
+                .build();
+    }
+
+    /**
+     * 일별 통계 누적용 클래스
+     */
+    private static class DailyAccumulator {
+
+        private long activityCount = 0;
+
+        private BigDecimal distanceMeters = BigDecimal.ZERO;
+
+        private long elapsedSeconds = 0;
     }
 }
