@@ -17,6 +17,7 @@ public class BadgeElementResponse {
     private String name;
     private long target;
     private long progress;
+    private boolean earned;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")
     private OffsetDateTime earnedAt;
@@ -27,6 +28,7 @@ public class BadgeElementResponse {
                 .name(badgeCode.getName())
                 .target(badgeCode.getTarget())
                 .progress(progress)
+                .earned(earnedAt != null)
                 .earnedAt(earnedAt == null ? null
                         : earnedAt.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime())
                 .build();

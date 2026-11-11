@@ -1,5 +1,6 @@
 package com.iriro.server.badge.application;
 
+import com.iriro.server.activity.domain.Activity;
 import com.iriro.server.activity.infrastructure.ActivityRepository;
 import com.iriro.server.badge.domain.BadgeAward;
 import com.iriro.server.badge.domain.BadgeCode;
@@ -8,67 +9,87 @@ import com.iriro.server.badge.presentation.BadgeElementResponse;
 import com.iriro.server.badge.presentation.BadgeListResponse;
 import com.iriro.server.common.CustomException;
 import com.iriro.server.common.ErrorCode;
+import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BadgeService {
+    private static final ZoneId KOREA = ZoneId.of("Asia/Seoul");
 
     private final MemberRepository memberRepository;
     private final ActivityRepository activityRepository;
     private final BadgeAwardRepository badgeAwardRepository;
 
-    /**
-     * 회원 배지 획득 현황 목록 조회
-     */
     public BadgeListResponse getMyBadges(Long memberId) {
-        // 1. 회원 존재 여부 및 null 검증 (BADGE-01-F01 대응)
         if (memberId == null || !memberRepository.existsById(memberId)) {
             throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
         }
-
-        // 2. 회원의 현재 활동 통계 조회 (활동 기록이 0개일 때 SUM NULL 처리 포함)
-        long totalActivityCount = activityRepository.countByMemberIdAndSimulatedFalse(memberId);
-        Long totalDistanceMetersNullSafe = activityRepository.sumRealDistanceByMemberId(memberId);
-        long totalDistanceMeters = Optional.ofNullable(totalDistanceMetersNullSafe).orElse(0L);
-
-        // 3. 회원의 배지 획득 내역 Map 변환 (BadgeCode -> earnedAt)
-        Map<BadgeCode, LocalDateTime> awardMap = badgeAwardRepository.findByMemberId(memberId)
-                .stream()
+        Map<BadgeCode, Long> progress = progress(activityRepository.findByMemberIdAndSimulatedFalse(memberId));
+        Map<BadgeCode, LocalDateTime> awards = badgeAwardRepository.findByMemberId(memberId).stream()
                 .collect(Collectors.toMap(BadgeAward::getBadgeCode, BadgeAward::getEarnedAt));
-
-        // 4. 전체 정의된 배지 항목별 진행도(progress) 및 획득 시각 계산 (BADGE-01-S01, BADGE-01-E02 대응)
-        List<BadgeElementResponse> badgeResponses = Arrays.stream(BadgeCode.values())
-                .map(badgeCode -> {
-                    long progress = calculateProgress(badgeCode, totalActivityCount, totalDistanceMeters);
-                    LocalDateTime earnedAt = awardMap.get(badgeCode); // 미획득 시 null 반환
-                    return BadgeElementResponse.of(badgeCode, progress, earnedAt);
-                })
+        List<BadgeElementResponse> badges = Arrays.stream(BadgeCode.values())
+                .map(code -> BadgeElementResponse.of(code, progress.get(code), awards.get(code)))
                 .toList();
-
-        // 5. 획득한 배지 수 계산 및 최종 응답 DTO 생성
-        long earnedCount = awardMap.size();
-        return BadgeListResponse.of(earnedCount, badgeResponses);
+        return BadgeListResponse.of(awards.size(), badges);
     }
 
-    /**
-     * 배지 종류별 현재 진척도(progress) 계산
-     */
-    private long calculateProgress(BadgeCode badgeCode, long totalActivityCount, long totalDistanceMeters) {
-        return switch (badgeCode) {
-            case FIRST_ACTIVITY, FIVE_ACTIVITIES -> totalActivityCount;
-            case TEN_KM -> totalDistanceMeters;
+    /** 활동 저장 트랜잭션 안에서 호출해 신규 지급을 기록한다. */
+    @Transactional
+    public void awardEarnedBadges(Member member) {
+        Map<BadgeCode, Long> progress = progress(activityRepository.findByMemberIdAndSimulatedFalse(member.getId()));
+        Set<BadgeCode> earned = badgeAwardRepository.findByMemberId(member.getId()).stream()
+                .map(BadgeAward::getBadgeCode).collect(Collectors.toSet());
+        for (BadgeCode code : BadgeCode.values()) {
+            if (isVerifiable(code) && !earned.contains(code) && progress.get(code) >= code.getTarget()) {
+                badgeAwardRepository.save(new BadgeAward(member, code));
+            }
+        }
+    }
+
+    private boolean isVerifiable(BadgeCode code) {
+        return switch (code) {
+            // 지정 코스·다리·하천 산책로 분류가 데이터에 없어 아직 판정할 수 없다.
+            case COURSE_FINISHER, RIVER_BRIDGE, RIVER_WALKWAY -> false;
+            default -> true;
         };
+    }
+
+    private Map<BadgeCode, Long> progress(List<Activity> activities) {
+        Map<BadgeCode, Long> result = new EnumMap<>(BadgeCode.class);
+        for (BadgeCode code : BadgeCode.values()) result.put(code, 0L);
+        long walkCount = activities.stream().filter(a -> "WALK".equals(a.getActivityType())).count();
+        long bikeMeters = sumMeters(activities.stream().filter(a -> "BIKE".equals(a.getActivityType())).toList());
+        long allMeters = sumMeters(activities);
+        long repeatRoutes = activities.stream().collect(Collectors.groupingBy(Activity::getRouteId, Collectors.counting()))
+                .values().stream().filter(count -> count >= 3).count();
+        long distinctDays = activities.stream().map(Activity::getStartedAt)
+                .map(start -> start.atOffset(ZoneOffset.UTC).atZoneSameInstant(KOREA).toLocalDate())
+                .distinct().count();
+        result.put(BadgeCode.WALK_LOVER, walkCount);
+        result.put(BadgeCode.YONGIN_CITY_EXPLORER, repeatRoutes);
+        result.put(BadgeCode.BIKE_RIDER, bikeMeters);
+        result.put(BadgeCode.CONSISTENT_ACTIVIST, distinctDays);
+        result.put(BadgeCode.YONGIN_DRAGON, allMeters);
+        return result;
+    }
+
+    private long sumMeters(List<Activity> activities) {
+        return activities.stream().map(Activity::getDistanceMeters).reduce(BigDecimal.ZERO, BigDecimal::add).longValue();
     }
 }

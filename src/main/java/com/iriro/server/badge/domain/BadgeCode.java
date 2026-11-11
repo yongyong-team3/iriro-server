@@ -10,9 +10,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum BadgeCode {
 
-    FIRST_ACTIVITY("FIRST_ACTIVITY", "첫 활동", 1L),
-    FIVE_ACTIVITIES("FIVE_ACTIVITIES", "활동 5회", 5L),
-    TEN_KM("TEN_KM", "누적 10km", 10000L); // 단위: m (10km = 10,000m)
+    COURSE_FINISHER("COURSE_FINISHER", "코스 완주자", 3L),
+    RIVER_BRIDGE("RIVER_BRIDGE", "하천 브릿지", 10L),
+    RIVER_WALKWAY("RIVER_WALKWAY", "하천 산책로", 15L),
+    WALK_LOVER("WALK_LOVER", "산책 러버", 20L),
+    YONGIN_CITY_EXPLORER("YONGIN_CITY_EXPLORER", "용인 도시탐험", 3L),
+    BIKE_RIDER("BIKE_RIDER", "자전거 라이더", 100000L),
+    CONSISTENT_ACTIVIST("CONSISTENT_ACTIVIST", "꾸준한 활동가", 30L),
+    YONGIN_DRAGON("YONGIN_DRAGON", "용인 드래곤", 200000L); // 거리 목표 단위: m
 
     private final String code;
     private final String name;
