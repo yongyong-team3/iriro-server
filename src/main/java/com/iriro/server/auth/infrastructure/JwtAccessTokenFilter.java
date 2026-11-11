@@ -19,8 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 public class JwtAccessTokenFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
-    private static final String INVALID_TOKEN_BODY =
-            "{\"code\":\"INVALID_TOKEN\",\"message\":\"인증 토큰이 유효하지 않습니다.\",\"errors\":[]}";
+    private static final String UNAUTHORIZED_BODY =
+            "{\"code\":\"UNAUTHORIZED\",\"message\":\"인증 정보를 확인해 주세요.\",\"errors\":null}";
 
     private final JwtTokenService jwtTokenService;
     private final MemberRepository memberRepository;
@@ -65,10 +65,10 @@ public class JwtAccessTokenFilter extends OncePerRequestFilter {
     }
 
     private void reject(HttpServletResponse response) throws IOException {
-        log.warn("authentication failed code=INVALID_TOKEN");
+        log.warn("authentication failed code=UNAUTHORIZED");
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setCharacterEncoding("UTF-8");
         response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write(INVALID_TOKEN_BODY);
+        response.getWriter().write(UNAUTHORIZED_BODY);
     }
 }

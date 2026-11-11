@@ -27,6 +27,11 @@ public class OpenApiConfiguration {
                     .addProperty("code", new StringSchema())
                     .addProperty("message", new StringSchema())
                     .addProperty("errors", new Schema<>().types(Set.of("null")).description("항상 null")));
+            openApi.getComponents().addSchemas("ApiErrorResponse", new Schema<>()
+                    .type("object")
+                    .addProperty("code", new StringSchema())
+                    .addProperty("message", new StringSchema())
+                    .addProperty("errors", new Schema<>().types(Set.of("null")).description("항상 null")));
             openApi.getPaths().forEach((url, path) -> path.readOperations().forEach(operation ->
                 operation.getResponses().forEach((status, response) -> {
                     Content content = response.getContent();

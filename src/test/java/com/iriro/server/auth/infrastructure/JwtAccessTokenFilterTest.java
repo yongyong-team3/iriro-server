@@ -101,7 +101,7 @@ class JwtAccessTokenFilterTest {
         filter.doFilter(request, response, chain);
 
         assertThat(response.getStatus()).isEqualTo(401);
-        assertThat(response.getContentAsString()).contains("INVALID_TOKEN", "errors");
+        assertThat(response.getContentAsString()).contains("UNAUTHORIZED", "\"errors\":null");
     }
 
     private MockHttpServletRequest requestWith(String accessToken) {

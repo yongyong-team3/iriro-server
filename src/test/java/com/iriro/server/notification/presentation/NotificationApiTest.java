@@ -105,7 +105,7 @@ class NotificationApiTest {
         mockMvc.perform(patch("/api/v1/notifications/{id}/read", foreign.getId())
                         .header("Authorization", bearer(member.getId())))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.errors").value((Object) null));
     }
 
     @Test
@@ -150,7 +150,7 @@ class NotificationApiTest {
         mockMvc.perform(post("/api/v1/devices").header("Authorization", bearer(other.getId()))
                         .contentType(MediaType.APPLICATION_JSON).content(firstRequest))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.errors").value((Object) null));
     }
 
     @Test
@@ -176,39 +176,39 @@ class NotificationApiTest {
         mockMvc.perform(get("/api/v1/notifications"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.errors").value((Object) null));
         mockMvc.perform(get("/api/v1/notifications").header("Authorization", "Bearer " + accessToken + "x"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.errors").value((Object) null));
     }
 
     @Test
     void rejectsInvalidNotificationQueryAndPathValuesWithBadRequestEnvelope() throws Exception {
         mockMvc.perform(get("/api/v1/notifications?size=0"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
                 .andExpect(jsonPath("$.message").isNotEmpty())
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.errors").value((Object) null));
         mockMvc.perform(get("/api/v1/notifications?size=101"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.errors").value((Object) null));
         mockMvc.perform(get("/api/v1/notifications?page=-1"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.errors").value((Object) null));
         mockMvc.perform(get("/api/v1/notifications?size=invalid"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.errors").value((Object) null));
         mockMvc.perform(patch("/api/v1/notifications/{id}/read", -1))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.errors").value((Object) null));
         mockMvc.perform(patch("/api/v1/notifications/{id}/read", "invalid"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors").isArray());
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"))
+                .andExpect(jsonPath("$.errors").value((Object) null));
     }
 
     private Member member() {
