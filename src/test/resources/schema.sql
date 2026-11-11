@@ -102,6 +102,15 @@ CREATE TABLE devices (
         REFERENCES members (id) ON DELETE CASCADE
 );
 
+CREATE TABLE pending_push_receipts (
+    ticket_id VARCHAR(128) NOT NULL PRIMARY KEY,
+    device_id BIGINT NOT NULL,
+    push_token VARCHAR(255) NOT NULL,
+    created_at DATETIME(6) NOT NULL,
+    CONSTRAINT fk_pending_push_receipts_device FOREIGN KEY (device_id)
+        REFERENCES devices (id) ON DELETE CASCADE
+);
+
 CREATE TABLE notifications (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     member_id BIGINT NOT NULL,

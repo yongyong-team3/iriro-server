@@ -27,6 +27,11 @@ public class RecoveryEventPoller {
     @Scheduled(fixedDelayString = "${iriro.notification.recovery-poll-ms:60000}",
             initialDelayString = "${iriro.notification.recovery-initial-delay-ms:60000}")
     public void poll() {
+        try {
+            notifications.checkPendingReceipts();
+        } catch (Exception exception) {
+            log.error("Expo push receipt check failed", exception);
+        }
         for (Trail trail : trails.findAll()) {
             if (trail.getWaterStationCode() == null) continue;
             try {

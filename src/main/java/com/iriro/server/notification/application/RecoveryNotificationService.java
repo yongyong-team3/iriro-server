@@ -5,6 +5,7 @@ import com.iriro.server.notification.domain.Device;
 import com.iriro.server.notification.domain.Notification;
 import com.iriro.server.notification.domain.RecoveryEvent;
 import com.iriro.server.notification.domain.NotificationSetting;
+import com.iriro.server.notification.domain.PendingPushReceipt;
 import com.iriro.server.notification.infrastructure.DeviceRepository;
 import com.iriro.server.notification.infrastructure.ExpoPushGateway;
 import com.iriro.server.notification.infrastructure.ExpoPushMessage;
@@ -12,6 +13,7 @@ import com.iriro.server.notification.infrastructure.ExpoPushReceipt;
 import com.iriro.server.notification.infrastructure.ExpoPushTicket;
 import com.iriro.server.notification.infrastructure.NotificationRepository;
 import com.iriro.server.notification.infrastructure.NotificationSettingRepository;
+import com.iriro.server.notification.infrastructure.PendingPushReceiptRepository;
 import com.iriro.server.notification.infrastructure.RecoveryEventRepository;
 import com.iriro.server.notification.infrastructure.RecoveryNotificationRecipient;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ public class RecoveryNotificationService {
     private final DeviceRepository deviceRepository;
     private final NotificationRepository notificationRepository;
     private final NotificationSettingRepository settingRepository;
+    private final PendingPushReceiptRepository pendingReceipts;
     private final MemberRepository memberRepository;
     private final ExpoPushGateway expoPushGateway;
 
@@ -37,12 +40,14 @@ public class RecoveryNotificationService {
                                        DeviceRepository deviceRepository,
                                        NotificationRepository notificationRepository,
                                        NotificationSettingRepository settingRepository,
+                                       PendingPushReceiptRepository pendingReceipts,
                                        MemberRepository memberRepository,
                                        ExpoPushGateway expoPushGateway) {
         this.eventRepository = eventRepository;
         this.deviceRepository = deviceRepository;
         this.notificationRepository = notificationRepository;
         this.settingRepository = settingRepository;
+        this.pendingReceipts = pendingReceipts;
         this.memberRepository = memberRepository;
         this.expoPushGateway = expoPushGateway;
     }
@@ -85,24 +90,38 @@ public class RecoveryNotificationService {
             String error = errorName(ticket.details());
             if ("ok".equals(ticket.status()) && ticket.id() != null) {
                 ticketDeviceIds.put(ticket.id(), sendable.get(i).getDeviceId());
+                pendingReceipts.save(new PendingPushReceipt(ticket.id(), sendable.get(i).getDeviceId(),
+                        sendable.get(i).getExpoPushToken()));
             } else {
                 errors.put(String.valueOf(sendable.get(i).getDeviceId()),
                         ticket.message() == null ? "Expo ticket rejected" : ticket.message());
             }
-            if ("DeviceNotRegistered".equals(error) && device != null) device.deactivatePushToken();
+            if ("DeviceNotRegistered".equals(error) && device != null
+                    && sendable.get(i).getExpoPushToken().equals(device.getExpoPushToken())) {
+                device.deactivatePushToken();
+            }
         }
         return new RecoveryNotificationDispatchResult(created, Map.copyOf(ticketDeviceIds), Map.copyOf(errors));
     }
 
-    /** Call later with the ticket-to-device mapping returned by notifyRecoveryEvent. */
+    /** Checks tickets from earlier polls; tickets without a ready receipt remain pending. */
     @Transactional
-    public Map<String, ExpoPushReceipt> checkReceipts(Map<String, Long> ticketDeviceIds) {
-        if (ticketDeviceIds.isEmpty()) return Map.of();
-        Map<String, ExpoPushReceipt> receipts = expoPushGateway.getReceipts(List.copyOf(ticketDeviceIds.keySet()));
+    public Map<String, ExpoPushReceipt> checkPendingReceipts() {
+        List<PendingPushReceipt> pending = pendingReceipts.findAll();
+        if (pending.isEmpty()) return Map.of();
+        Map<String, ExpoPushReceipt> receipts = expoPushGateway.getReceipts(
+                pending.stream().map(PendingPushReceipt::getTicketId).toList());
+        Map<String, PendingPushReceipt> byTicket = new LinkedHashMap<>();
+        pending.forEach(record -> byTicket.put(record.getTicketId(), record));
         receipts.forEach((ticketId, receipt) -> {
-            if (!"error".equals(receipt.status()) || !"DeviceNotRegistered".equals(errorName(receipt.details()))) return;
-            Long deviceId = ticketDeviceIds.get(ticketId);
-            if (deviceId != null) deviceRepository.findById(deviceId).ifPresent(Device::deactivatePushToken);
+            PendingPushReceipt record = byTicket.get(ticketId);
+            if (record == null) return;
+            if ("error".equals(receipt.status()) && "DeviceNotRegistered".equals(errorName(receipt.details()))) {
+                deviceRepository.findById(record.getDeviceId()).ifPresent(device -> {
+                    if (record.getPushToken().equals(device.getExpoPushToken())) device.deactivatePushToken();
+                });
+            }
+            pendingReceipts.delete(record);
         });
         return receipts;
     }
