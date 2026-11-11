@@ -76,49 +76,28 @@ public class FavoriteService {
      * FAV-02 즐겨찾기 추가
      */
     @Transactional
-    public FavoriteCreateResponse addFavorite(
-            Long memberId,
-            FavoriteCreateRequest request
-    ) {
+    public FavoriteAddResult addFavorite(Long memberId, FavoriteCreateRequest request) {
 
-        // 1. 회원 존재 여부 확인
         if (memberId == null || !memberRepository.existsById(memberId)) {
             throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
         }
 
         Long routeId = request.getRouteId();
 
-        // 2. 등록 코스 존재 여부 확인
         Route route = routeRepository.findById(routeId)
-                .orElseThrow(() ->
-                        new CustomException(ErrorCode.ROUTE_NOT_FOUND)
-                );
+                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_NOT_FOUND));
 
-        // 3. 기존 즐겨찾기 여부 확인
         return favoriteRepository.findByMemberIdAndRouteId(memberId, routeId)
-                .map(favorite -> FavoriteCreateResponse.of(
-                        favorite.getId(),
-                        routeId
-                ))
+                .map(favorite -> new FavoriteAddResult(
+                        FavoriteCreateResponse.of(favorite.getId(), routeId), false))
                 .orElseGet(() -> {
-
-                    // 4. 회원 조회
                     Member member = memberRepository.findById(memberId)
-                            .orElseThrow(() ->
-                                    new CustomException(ErrorCode.UNAUTHORIZED_USER)
-                            );
+                            .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED_USER));
 
-                    // 5. 즐겨찾기 생성
-                    Favorite favorite = new Favorite(member, route);
+                    Favorite saved = favoriteRepository.save(new Favorite(member, route));
 
-                    Favorite savedFavorite =
-                            favoriteRepository.save(favorite);
-
-                    // 6. 응답 반환
-                    return FavoriteCreateResponse.of(
-                            savedFavorite.getId(),
-                            routeId
-                    );
+                    return new FavoriteAddResult(
+                            FavoriteCreateResponse.of(saved.getId(), routeId), true);
                 });
     }
     /**

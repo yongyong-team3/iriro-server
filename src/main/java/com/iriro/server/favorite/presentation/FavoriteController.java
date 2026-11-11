@@ -2,6 +2,7 @@ package com.iriro.server.favorite.presentation;
 
 import com.iriro.server.auth.application.CurrentMemberProvider;
 import com.iriro.server.common.ApiResponse;
+import com.iriro.server.favorite.application.FavoriteAddResult;
 import com.iriro.server.favorite.application.FavoriteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -87,15 +88,15 @@ public class FavoriteController {
     public ResponseEntity<ApiResponse<FavoriteCreateResponse>> addFavorite(
             @Valid @RequestBody FavoriteCreateRequest request
     ) {
+        FavoriteAddResult result = favoriteService.addFavorite(
+                currentMemberProvider.requireMemberId(),
+                request
+        );
 
-        FavoriteCreateResponse responseData =
-                favoriteService.addFavorite(
-                        currentMemberProvider.requireMemberId(),
-                        request
-                );
+        HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-                ApiResponse.success("즐겨찾기에 저장되었습니다.", responseData)
+        return ResponseEntity.status(status).body(
+                ApiResponse.success("즐겨찾기에 저장되었습니다.", result.response())
         );
     }
     /**

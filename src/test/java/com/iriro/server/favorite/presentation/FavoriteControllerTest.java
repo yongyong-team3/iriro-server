@@ -1,15 +1,17 @@
 package com.iriro.server.favorite.presentation;
 
 import com.iriro.server.auth.application.CurrentMemberProvider;
-import com.iriro.server.auth.infrastructure.JwtTokenService;
+import com.iriro.server.auth.infrastructure.JwtAccessTokenFilter;
+import com.iriro.server.favorite.application.FavoriteAddResult;
 import com.iriro.server.favorite.application.FavoriteService;
-import com.iriro.server.member.infrastructure.MemberRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,10 +32,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * 시큐리티 필터는 끄고(addFilters = false), 인증된 회원은 CurrentMemberProvider mock 으로 대체합니다.
- * ApiResponse 의 JSON 필드명이 message / data 라고 가정했습니다. 다르면 jsonPath 를 수정하세요.
- * Spring Boot 3.4+ 라면 @MockBean 대신 @MockitoBean 을 사용해도 됩니다.
+ * ApiResponse 의 JSON 필드명이 code / message / data 라고 가정했습니다. 다르면 jsonPath 를 수정하세요.
+ * Spring Boot 4 기준 import 입니다. 패키지가 다르면 IDE 자동 import 로 맞추세요.
  */
-@WebMvcTest(FavoriteController.class)
+@WebMvcTest(
+        controllers = FavoriteController.class,
+        excludeFilters = @ComponentScan.Filter(
+                type = FilterType.ASSIGNABLE_TYPE,
+                classes = JwtAccessTokenFilter.class
+        )
+)
 @AutoConfigureMockMvc(addFilters = false)
 class FavoriteControllerTest {
 
@@ -41,12 +49,6 @@ class FavoriteControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @MockitoBean
-    private JwtTokenService jwtTokenService;
-
-    @MockitoBean
-    private MemberRepository memberRepository;
 
     @MockitoBean
     private FavoriteService favoriteService;
@@ -58,6 +60,10 @@ class FavoriteControllerTest {
     void setUp() {
         given(currentMemberProvider.requireMemberId()).willReturn(MEMBER_ID);
     }
+
+    // ------------------------------------------------------------------
+    // FAV-01 목록 조회
+    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("GET /api/v1/favorites - 200, 목록 반환")
@@ -76,6 +82,7 @@ class FavoriteControllerTest {
 
         mockMvc.perform(get("/api/v1/favorites"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.message").value("조회되었습니다."))
                 .andExpect(jsonPath("$.data.favorites[0].favoriteId").value(1000))
                 .andExpect(jsonPath("$.data.favorites[0].routeId").value(10))
@@ -97,16 +104,37 @@ class FavoriteControllerTest {
                 .andExpect(jsonPath("$.data.favorites").isEmpty());
     }
 
+    // ------------------------------------------------------------------
+    // FAV-02 즐겨찾기 추가
+    // ------------------------------------------------------------------
+
     @Test
-    @DisplayName("POST /api/v1/favorites - 201, 즐겨찾기 저장")
-    void addFavorite() throws Exception {
+    @DisplayName("POST /api/v1/favorites - 신규 저장이면 201")
+    void addFavoriteCreated() throws Exception {
         given(favoriteService.addFavorite(eq(MEMBER_ID), any(FavoriteCreateRequest.class)))
-                .willReturn(FavoriteCreateResponse.of(1000L, 10L));
+                .willReturn(new FavoriteAddResult(FavoriteCreateResponse.of(1000L, 10L), true));
 
         mockMvc.perform(post("/api/v1/favorites")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"routeId\": 10}"))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.message").value("즐겨찾기에 저장되었습니다."))
+                .andExpect(jsonPath("$.data.favoriteId").value(1000))
+                .andExpect(jsonPath("$.data.routeId").value(10));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/favorites - 이미 저장된 코스면 200, 같은 favoriteId")
+    void addFavoriteAlreadyExists() throws Exception {
+        given(favoriteService.addFavorite(eq(MEMBER_ID), any(FavoriteCreateRequest.class)))
+                .willReturn(new FavoriteAddResult(FavoriteCreateResponse.of(1000L, 10L), false));
+
+        mockMvc.perform(post("/api/v1/favorites")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"routeId\": 10}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
                 .andExpect(jsonPath("$.message").value("즐겨찾기에 저장되었습니다."))
                 .andExpect(jsonPath("$.data.favoriteId").value(1000))
                 .andExpect(jsonPath("$.data.routeId").value(10));
@@ -155,6 +183,10 @@ class FavoriteControllerTest {
                         .content("{\"routeId\": \"abc\"}"))
                 .andExpect(status().isBadRequest());
     }
+
+    // ------------------------------------------------------------------
+    // FAV-03 즐겨찾기 삭제
+    // ------------------------------------------------------------------
 
     @Test
     @DisplayName("DELETE /api/v1/favorites/{id} - 204")

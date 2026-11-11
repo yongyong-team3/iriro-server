@@ -209,10 +209,11 @@ class FavoriteServiceTest {
             given(favoriteRepository.findByMemberIdAndRouteId(MEMBER_ID, ROUTE_ID))
                     .willReturn(Optional.of(existing));
 
-            FavoriteCreateResponse response = favoriteService.addFavorite(MEMBER_ID, createRequest(ROUTE_ID));
+            FavoriteAddResult result = favoriteService.addFavorite(MEMBER_ID, createRequest(ROUTE_ID));
 
-            assertThat(response.getFavoriteId()).isEqualTo(FAVORITE_ID);
-            assertThat(response.getRouteId()).isEqualTo(ROUTE_ID);
+            assertThat(result.created()).isFalse();
+            assertThat(result.response().getFavoriteId()).isEqualTo(FAVORITE_ID);
+            assertThat(result.response().getRouteId()).isEqualTo(ROUTE_ID);
             verify(favoriteRepository, never()).save(any());
             verify(memberRepository, never()).findById(any());
         }
@@ -232,10 +233,11 @@ class FavoriteServiceTest {
             given(memberRepository.findById(MEMBER_ID)).willReturn(Optional.of(member));
             given(favoriteRepository.save(any(Favorite.class))).willReturn(saved);
 
-            FavoriteCreateResponse response = favoriteService.addFavorite(MEMBER_ID, createRequest(ROUTE_ID));
+            FavoriteAddResult result = favoriteService.addFavorite(MEMBER_ID, createRequest(ROUTE_ID));
 
-            assertThat(response.getFavoriteId()).isEqualTo(FAVORITE_ID);
-            assertThat(response.getRouteId()).isEqualTo(ROUTE_ID);
+            assertThat(result.created()).isTrue();
+            assertThat(result.response().getFavoriteId()).isEqualTo(FAVORITE_ID);
+            assertThat(result.response().getRouteId()).isEqualTo(ROUTE_ID);
             verify(favoriteRepository).save(any(Favorite.class));
         }
 
