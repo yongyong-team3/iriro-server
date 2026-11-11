@@ -646,4 +646,141 @@ public class ActivityService {
 
         private long elapsedSeconds = 0;
     }
+    /**
+     * ACT-05 월간 활동 통계 조회
+     */
+    public ActivityMonthlyStatsResponse getMonthlyStats(
+            Long memberId,
+            String month
+    ) {
+
+        // 1. 회원 확인
+        if (memberId == null || !memberRepository.existsById(memberId)) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
+        }
+
+        // 2. 조회 월 설정
+        YearMonth yearMonth;
+
+        try {
+            yearMonth = (month == null || month.isBlank())
+                    ? YearMonth.now(ZoneId.of("Asia/Seoul"))
+                    : YearMonth.parse(month);
+
+        } catch (DateTimeException e) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // 3. 한국 시간 기준 월 시작과 다음 달 시작
+        ZoneOffset kst = ZoneOffset.ofHours(9);
+
+        LocalDateTime start = yearMonth
+                .atDay(1)
+                .atStartOfDay()
+                .atOffset(kst)
+                .withOffsetSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+
+        LocalDateTime end = yearMonth
+                .plusMonths(1)
+                .atDay(1)
+                .atStartOfDay()
+                .atOffset(kst)
+                .withOffsetSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+
+        // 4. 시연 기록을 제외한 월간 활동 조회
+        List<Activity> activities = activityRepository
+                .findByMemberIdAndSimulatedFalseAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+                        memberId,
+                        start,
+                        end
+                );
+
+        // 5. 월간 합계 계산
+        long activityCount = activities.size();
+
+        long elapsedSeconds = 0;
+
+        BigDecimal distanceMeters = BigDecimal.ZERO;
+
+        // 활동 날짜 중복 제거 및 정렬
+        Set<LocalDate> activityDateSet = new TreeSet<>();
+
+        for (Activity activity : activities) {
+
+            distanceMeters = distanceMeters.add(
+                    activity.getDistanceMeters()
+            );
+
+            elapsedSeconds += activity.getElapsedSeconds();
+
+            // UTC -> 한국 날짜
+            LocalDate activityDate = activity.getStartedAt()
+                    .atOffset(ZoneOffset.UTC)
+                    .withOffsetSameInstant(kst)
+                    .toLocalDate();
+
+            activityDateSet.add(activityDate);
+        }
+
+        // 6. 활동 날짜 목록
+        List<LocalDate> activityDates = new ArrayList<>(activityDateSet);
+
+        // 7. 최장 연속 활동 일수 계산
+        long longestStreakDays = 0;
+        long streak = 0;
+
+        LocalDate previousDate = null;
+
+        for (LocalDate currentDate : activityDates) {
+
+            if (previousDate != null &&
+                    previousDate.plusDays(1).equals(currentDate)) {
+
+                streak++;
+
+            } else {
+
+                streak = 1;
+            }
+
+            longestStreakDays = Math.max(
+                    longestStreakDays,
+                    streak
+            );
+
+            previousDate = currentDate;
+        }
+
+        // 8. 현재 연속 활동 일수 계산
+        // 현재 월은 오늘까지, 과거 월은 해당 월 마지막 날까지 계산
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+
+        LocalDate streakEndDate = today.isBefore(yearMonth.atEndOfMonth())
+                ? today
+                : yearMonth.atEndOfMonth();
+
+        long currentStreakDays = 0;
+
+        LocalDate checkDate = streakEndDate;
+
+        while (activityDateSet.contains(checkDate)) {
+
+            currentStreakDays++;
+
+            checkDate = checkDate.minusDays(1);
+        }
+
+        // 9. 최종 응답
+        return ActivityMonthlyStatsResponse.builder()
+                .month(yearMonth.toString())
+                .activityCount(activityCount)
+                .distanceMeters(distanceMeters)
+                .elapsedSeconds(elapsedSeconds)
+                .activityDates(activityDates)
+                .currentStreakDays(currentStreakDays)
+                .longestStreakDays(longestStreakDays)
+                .build();
+    }
 }

@@ -53,4 +53,10 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findTop3ByMemberIdAndSimulatedFalseOrderByStartedAtDescIdDesc(
             Long memberId
     );
+
+    List<Activity> findByMemberIdAndSimulatedFalseAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+            Long memberId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
 }

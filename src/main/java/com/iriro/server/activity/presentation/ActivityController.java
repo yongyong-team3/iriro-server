@@ -157,4 +157,36 @@ public class ActivityController {
                 )
         );
     }
+    /**
+     * ACT-05 월간 활동 통계 조회
+     */
+    @Operation(
+            summary = "월간 활동 통계 조회",
+            description = "월간 활동 거리, 횟수, 시간 및 연속 활동 일수를 조회합니다.",
+            security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @GetMapping("/stats/monthly")
+    public ResponseEntity<ApiResponse<ActivityMonthlyStatsResponse>> getMonthlyStats(
+
+            @Parameter(description = "조회 월 (YYYY-MM)", example = "2026-11")
+            @RequestParam(required = false)
+            String month
+
+    ) {
+
+        Long currentMemberId = currentMemberProvider.requireMemberId();
+
+        ActivityMonthlyStatsResponse responseData =
+                activityService.getMonthlyStats(
+                        currentMemberId,
+                        month
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "조회되었습니다.",
+                        responseData
+                )
+        );
+    }
 }
