@@ -31,6 +31,15 @@ public class RecoveryEvent {
 
     protected RecoveryEvent() { }
 
+    public RecoveryEvent(Long trailId, LocalDateTime startedAt) {
+        this.trailId = trailId;
+        this.startedAt = startedAt;
+    }
+
+    public void end(LocalDateTime at) {
+        if (endedAt == null && at.isAfter(startedAt)) endedAt = at;
+    }
+
     public void markFirstNotified(LocalDateTime at) {
         if (firstNotifiedAt == null) firstNotifiedAt = at;
     }
@@ -39,4 +48,5 @@ public class RecoveryEvent {
     public Long getTrailId() { return trailId; }
     public LocalDateTime getStartedAt() { return startedAt; }
     public LocalDateTime getFirstNotifiedAt() { return firstNotifiedAt; }
+    public LocalDateTime getEndedAt() { return endedAt; }
 }

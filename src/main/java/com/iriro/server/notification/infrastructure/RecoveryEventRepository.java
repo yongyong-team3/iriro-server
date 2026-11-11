@@ -12,4 +12,6 @@ public interface RecoveryEventRepository extends JpaRepository<RecoveryEvent, Lo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select event from RecoveryEvent event where event.id = :id")
     Optional<RecoveryEvent> findLockedById(@Param("id") Long id);
+
+    Optional<RecoveryEvent> findFirstByTrailIdAndEndedAtIsNullOrderByStartedAtDesc(Long trailId);
 }
