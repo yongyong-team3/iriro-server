@@ -2,6 +2,7 @@ package com.iriro.server.notification.infrastructure;
 
 import com.iriro.server.notification.domain.Notification;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -16,6 +17,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             Long beforeId,
             Pageable pageable
     );
+
+    Page<Notification> findByMember_IdAndTypeOrderByIdDesc(Long memberId, String type, Pageable pageable);
+
+    Page<Notification> findByMember_IdAndTypeAndReadAtIsNullOrderByIdDesc(
+            Long memberId, String type, Pageable pageable);
 
     Optional<Notification> findByIdAndMember_Id(Long id, Long memberId);
 

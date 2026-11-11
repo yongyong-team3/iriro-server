@@ -40,11 +40,12 @@ public class NotificationController {
             @ApiResponse(responseCode = "400", description = "조회 조건 오류"),
             @ApiResponse(responseCode = "401", description = "인증 실패")})
     public ApiSuccessResponse<NotificationListResponse> list(
-            @RequestParam(required = false) @Positive Long beforeId,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit
+            @RequestParam(defaultValue = "false") boolean unreadOnly,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        return ApiSuccessResponse.of("NOTIFICATION_LIST_SUCCESS", "알림 목록을 조회했습니다.",
-                notificationService.list(currentMemberProvider.requireMemberId(), beforeId, limit));
+        return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.",
+                notificationService.list(currentMemberProvider.requireMemberId(), unreadOnly, page, size));
     }
 
     @PatchMapping("/{notificationId}/read")
@@ -53,7 +54,7 @@ public class NotificationController {
             @ApiResponse(responseCode = "401", description = "인증 실패"),
             @ApiResponse(responseCode = "404", description = "알림 없음")})
     public ApiSuccessResponse<NotificationReadResponse> markRead(@PathVariable @Positive Long notificationId) {
-        return ApiSuccessResponse.of("NOTIFICATION_READ_SUCCESS", "알림을 읽음 처리했습니다.",
+        return ApiSuccessResponse.of("SUCCESS", "읽음 처리되었습니다.",
                 notificationService.markRead(currentMemberProvider.requireMemberId(), notificationId));
     }
 }

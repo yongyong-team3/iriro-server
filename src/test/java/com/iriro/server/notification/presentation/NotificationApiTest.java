@@ -13,12 +13,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.sql.PreparedStatement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -41,23 +44,44 @@ class NotificationApiTest {
     @Autowired NotificationRepository notificationRepository;
     @Autowired DeviceRepository deviceRepository;
     @Autowired JwtTokenService jwtTokenService;
+    @Autowired JdbcTemplate jdbcTemplate;
 
     @Test
-    void listsOnlyMembersNotificationsAndUsesCursor() throws Exception {
+    void listsOnlyRecoveryNotificationsWithPagingAndUnreadFilter() throws Exception {
         Member member = member();
         Member other = member();
         notificationRepository.saveAndFlush(new Notification(member, null, "INFO", "one", "body"));
-        Notification second = notificationRepository.saveAndFlush(new Notification(member, null, "INFO", "two", "body"));
+        long trailId = insertId("INSERT INTO trails(name) VALUES ('test')");
+        long eventId = insertEvent(trailId);
+        Notification second = notificationRepository.saveAndFlush(new Notification(member, eventId, "RECOVERY_FORECAST", "two", "body"));
         notificationRepository.saveAndFlush(new Notification(other, null, "INFO", "private", "body"));
 
-        mockMvc.perform(get("/api/v1/notifications?limit=1")
+        mockMvc.perform(get("/api/v1/notifications?size=1&page=0")
                         .header("Authorization", bearer(member.getId())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value("NOTIFICATION_LIST_SUCCESS"))
-                .andExpect(jsonPath("$.data.items.length()").value(1))
-                .andExpect(jsonPath("$.data.items[0].title").value("two"))
-                .andExpect(jsonPath("$.data.nextCursorId").value(second.getId()))
-                .andExpect(jsonPath("$.data.hasNext").value(true));
+                .andExpect(jsonPath("$.code").value("SUCCESS"))
+                .andExpect(jsonPath("$.data.content.length()").value(1))
+                .andExpect(jsonPath("$.data.content[0].title").value("two"))
+                .andExpect(jsonPath("$.data.content[0].notificationId").value(second.getId()))
+                .andExpect(jsonPath("$.data.content[0].trailId").value(trailId))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+        mockMvc.perform(get("/api/v1/notifications?unreadOnly=true")
+                        .header("Authorization", bearer(member.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(1));
+        mockMvc.perform(get("/api/v1/notifications?size=100&page=1")
+                        .header("Authorization", bearer(member.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(0))
+                .andExpect(jsonPath("$.data.totalElements").value(1));
+        mockMvc.perform(patch("/api/v1/notifications/{id}/read", second.getId())
+                        .header("Authorization", bearer(member.getId())))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/notifications?unreadOnly=true")
+                        .header("Authorization", bearer(member.getId())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.length()").value(0));
     }
 
     @Test
@@ -160,20 +184,20 @@ class NotificationApiTest {
 
     @Test
     void rejectsInvalidNotificationQueryAndPathValuesWithBadRequestEnvelope() throws Exception {
-        mockMvc.perform(get("/api/v1/notifications?limit=0"))
+        mockMvc.perform(get("/api/v1/notifications?size=0"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.message").isNotEmpty())
                 .andExpect(jsonPath("$.errors").isArray());
-        mockMvc.perform(get("/api/v1/notifications?limit=101"))
+        mockMvc.perform(get("/api/v1/notifications?size=101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors").isArray());
-        mockMvc.perform(get("/api/v1/notifications?beforeId=-1"))
+        mockMvc.perform(get("/api/v1/notifications?page=-1"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors").isArray());
-        mockMvc.perform(get("/api/v1/notifications?limit=invalid"))
+        mockMvc.perform(get("/api/v1/notifications?size=invalid"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.errors").isArray());
@@ -193,5 +217,23 @@ class NotificationApiTest {
 
     private String bearer(Long memberId) {
         return "Bearer " + jwtTokenService.issueAccessToken(memberId).value();
+    }
+
+    private long insertEvent(long trailId) {
+        GeneratedKeyHolder keys = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO recovery_events(trail_id, started_at) VALUES (?, CURRENT_TIMESTAMP)",
+                    java.sql.Statement.RETURN_GENERATED_KEYS);
+            statement.setLong(1, trailId);
+            return statement;
+        }, keys);
+        return keys.getKey().longValue();
+    }
+
+    private long insertId(String sql) {
+        GeneratedKeyHolder keys = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> connection.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS), keys);
+        return keys.getKey().longValue();
     }
 }
