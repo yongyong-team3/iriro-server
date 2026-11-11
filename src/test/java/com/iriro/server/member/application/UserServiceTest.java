@@ -3,9 +3,9 @@ package com.iriro.server.member.application;
 import com.iriro.server.activity.infrastructure.ActivityRepository;
 import com.iriro.server.badge.infrastructure.BadgeAwardRepository;
 import com.iriro.server.common.CustomException;
-import com.iriro.server.member.domain.EmailCredential;
+import com.iriro.server.auth.domain.EmailCredential;
 import com.iriro.server.member.domain.Member;
-import com.iriro.server.member.infrastructure.EmailCredentialRepository;
+import com.iriro.server.auth.infrastructure.EmailCredentialRepository;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import com.iriro.server.member.presentation.MyInfoResponse;
 import com.iriro.server.member.presentation.NicknameCheckResponse;
@@ -66,7 +66,7 @@ class UserServiceTest {
             given(activityRepository.countByMemberId(1L)).willReturn(10L);
             given(activityRepository.sumDistanceByMemberId(1L)).willReturn(42_000L);
             given(badgeAwardRepository.countByMemberId(1L)).willReturn(3L);
-            given(notificationRepository.countByMemberIdAndIsReadFalse(1L)).willReturn(2L);
+            given(notificationRepository.countByMember_IdAndReadAtIsNull(1L)).willReturn(2L);
 
             // when
             MyInfoResponse result = userService.getMyInfo(1L);
@@ -91,7 +91,7 @@ class UserServiceTest {
             given(activityRepository.countByMemberId(1L)).willReturn(0L);
             given(activityRepository.sumDistanceByMemberId(1L)).willReturn(0L);
             given(badgeAwardRepository.countByMemberId(1L)).willReturn(0L);
-            given(notificationRepository.countByMemberIdAndIsReadFalse(1L)).willReturn(0L);
+            given(notificationRepository.countByMember_IdAndReadAtIsNull(1L)).willReturn(0L);
 
             // when
             MyInfoResponse result = userService.getMyInfo(1L);
