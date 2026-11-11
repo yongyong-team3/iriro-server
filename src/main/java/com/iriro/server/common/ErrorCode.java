@@ -28,6 +28,11 @@ public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "요청 정보를 확인해 주세요."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "SERVER_ERROR", "서버 내부 오류가 발생했습니다."),
 
+    // Activity
+    IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "이미 처리한 요청과 내용이 다릅니다."),
+
+    START_POINT_NOT_FOUND(HttpStatus.NOT_FOUND, "NOT_FOUND", "대상을 찾을 수 없습니다."),
+
     // Auth & User Validation
     INVALID_MEMBER_NAME(HttpStatus.BAD_REQUEST, "INVALID_MEMBER_NAME", "닉네임 형식을 확인해 주세요."),
     DUPLICATE_MEMBER_NAME(HttpStatus.CONFLICT, "DUPLICATE_MEMBER_NAME", "이미 사용 중인 닉네임입니다.");

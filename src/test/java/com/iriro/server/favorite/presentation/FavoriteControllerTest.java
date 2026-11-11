@@ -19,8 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -148,7 +147,7 @@ class FavoriteControllerTest {
                         .content("{}"))
                 .andExpect(status().isBadRequest());
 
-        verify(favoriteService, never()).addFavorite(any(), any());
+        verify(favoriteService, never()).addFavorite(anyLong(), any(FavoriteCreateRequest.class));
     }
 
     @Test
@@ -164,7 +163,7 @@ class FavoriteControllerTest {
                         .content("{\"routeId\": -5}"))
                 .andExpect(status().isBadRequest());
 
-        verify(favoriteService, never()).addFavorite(any(), any());
+        verify(favoriteService, never()).addFavorite(anyLong(), any(FavoriteCreateRequest.class));
     }
 
     @Test

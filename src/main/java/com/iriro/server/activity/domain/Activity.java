@@ -1,19 +1,25 @@
 package com.iriro.server.activity.domain;
 
-import com.iriro.server.member.domain.Member;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "activities")
+@Table(
+        name = "activities",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_activity_idempotency",
+                        columnNames = {"member_id", "idempotency_key"}
+                )
+        }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor
+@Builder
 public class Activity {
 
     @Id
@@ -22,9 +28,8 @@ public class Activity {
     private Long id;
 
     // 회원 정보
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "member_id", nullable = false)
-    private Member member;
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
 
     // 경로 ID
     @Column(name = "route_id", nullable = false)
@@ -59,6 +64,7 @@ public class Activity {
     private BigDecimal distanceMeters;
 
     // GPS 이동 경로 JSON
+    @Lob
     @Column(name = "track_points_json", nullable = false, columnDefinition = "LONGTEXT")
     private String trackPointsJson;
 
@@ -75,27 +81,7 @@ public class Activity {
     private String requestHash;
 
     // 생성 시간
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
-
-    @Builder
-    public Activity(Member member, Long routeId, Long startPointId, Long detourId,
-                    String activityType, LocalDateTime startedAt, LocalDateTime endedAt,
-                    Integer elapsedSeconds, BigDecimal distanceMeters, String trackPointsJson,
-                    boolean simulated, String idempotencyKey, String requestHash) {
-        this.member = member;
-        this.routeId = routeId;
-        this.startPointId = startPointId;
-        this.detourId = detourId;
-        this.activityType = activityType;
-        this.startedAt = startedAt;
-        this.endedAt = endedAt;
-        this.elapsedSeconds = elapsedSeconds;
-        this.distanceMeters = distanceMeters;
-        this.trackPointsJson = trackPointsJson;
-        this.simulated = simulated;
-        this.idempotencyKey = idempotencyKey;
-        this.requestHash = requestHash;
-        this.createdAt = LocalDateTime.now();
-    }
+    
 }

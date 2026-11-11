@@ -35,12 +35,8 @@ public class FavoriteService {
      */
     public FavoriteListResponse getFavorites(Long memberId) {
 
-        // 1. 회원 존재 여부 확인
-        if (memberId == null || !memberRepository.existsById(memberId)) {
-            throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
-        }
+        validateMember(memberId);
 
-        // 2. 회원의 즐겨찾기 목록 조회
         List<FavoriteResponse> favorites =
                 favoriteRepository.findAllWithRouteByMemberId(memberId)
                         .stream()
@@ -48,13 +44,11 @@ public class FavoriteService {
 
                             Route route = favorite.getRoute();
 
-                            // 3. 하천길 조회
                             Trail trail = trailRepository.findById(route.getTrailId())
                                     .orElseThrow(() ->
                                             new CustomException(ErrorCode.TRAIL_NOT_FOUND)
                                     );
 
-                            // 4. 응답 DTO 생성
                             return FavoriteResponse.builder()
                                     .favoriteId(favorite.getId())
                                     .routeId(route.getId())
@@ -74,61 +68,108 @@ public class FavoriteService {
 
     /**
      * FAV-02 즐겨찾기 추가
+     * FavoriteController에서 호출
      */
     @Transactional
-    public FavoriteAddResult addFavorite(Long memberId, FavoriteCreateRequest request) {
+    public FavoriteAddResult addFavorite(
+            Long memberId,
+            FavoriteCreateRequest request
+    ) {
 
-        if (memberId == null || !memberRepository.existsById(memberId)) {
-            throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
+        validateMember(memberId);
+
+        if (request == null || request.getRouteId() == null) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
         Long routeId = request.getRouteId();
 
         Route route = routeRepository.findById(routeId)
-                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_NOT_FOUND));
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.ROUTE_NOT_FOUND)
+                );
 
-        return favoriteRepository.findByMemberIdAndRouteId(memberId, routeId)
-                .map(favorite -> new FavoriteAddResult(
-                        FavoriteCreateResponse.of(favorite.getId(), routeId), false))
-                .orElseGet(() -> {
-                    Member member = memberRepository.findById(memberId)
-                            .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED_USER));
+        // 이미 즐겨찾기한 경우 기존 데이터 반환
+        Favorite existing = favoriteRepository
+                .findByMemberIdAndRouteId(memberId, routeId)
+                .orElse(null);
 
-                    Favorite saved = favoriteRepository.save(new Favorite(member, route));
+        if (existing != null) {
+            return new FavoriteAddResult(
+                    FavoriteCreateResponse.of(existing.getId(), routeId),
+                    false
+            );
+        }
 
-                    return new FavoriteAddResult(
-                            FavoriteCreateResponse.of(saved.getId(), routeId), true);
-                });
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.UNAUTHORIZED_USER)
+                );
+
+        Favorite saved = favoriteRepository.save(
+                new Favorite(member, route)
+        );
+
+        return new FavoriteAddResult(
+                FavoriteCreateResponse.of(saved.getId(), routeId),
+                true
+        );
     }
+
+    /**
+     * ACT-01 활동 저장 시 즐겨찾기 추가
+     * ActivityService에서 호출
+     *
+     * @return 새롭게 추가된 경우 true
+     */
+    @Transactional
+    public boolean addFavorite(Long memberId, Long routeId) {
+
+        validateMember(memberId);
+
+        Route route = routeRepository.findById(routeId)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.ROUTE_NOT_FOUND)
+                );
+
+        // 이미 즐겨찾기한 경우 추가하지 않음
+        if (favoriteRepository.findByMemberIdAndRouteId(memberId, routeId)
+                .isPresent()) {
+            return false;
+        }
+
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() ->
+                        new CustomException(ErrorCode.UNAUTHORIZED_USER)
+                );
+
+        favoriteRepository.save(new Favorite(member, route));
+
+        return true;
+    }
+
     /**
      * FAV-03 즐겨찾기 삭제
      */
     @Transactional
     public void deleteFavorite(Long memberId, Long favoriteId) {
 
-        // 1. 회원 존재 여부 확인
+        validateMember(memberId);
+
+        Favorite favorite = favoriteRepository
+                .findByIdAndMemberId(favoriteId, memberId)
+                .orElseThrow(() -> new CustomException(ErrorCode.FAVORITE_NOT_FOUND));
+
+        favoriteRepository.delete(favorite);
+    }
+
+    /**
+     * 회원 존재 여부 검증
+     */
+    private void validateMember(Long memberId) {
+
         if (memberId == null || !memberRepository.existsById(memberId)) {
             throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
         }
-
-        // 2. 본인의 즐겨찾기 조회
-        Favorite favorite = favoriteRepository
-                .findByIdAndMemberId(favoriteId, memberId)
-                .orElse(null);
-
-        // 3. 본인의 즐겨찾기가 아닌 경우 확인
-        if (favorite == null) {
-
-            // 실제 존재하는 다른 회원의 즐겨찾기라면 404
-            if (favoriteRepository.existsById(favoriteId)) {
-                throw new CustomException(ErrorCode.FAVORITE_NOT_FOUND);
-            }
-
-            // 이미 삭제된 즐겨찾기라면 재요청이므로 성공 처리
-            return;
-        }
-
-        // 4. 즐겨찾기 삭제
-        favoriteRepository.delete(favorite);
     }
 }
