@@ -1,6 +1,12 @@
 package com.iriro.server.activity.application;
 
 
+import com.iriro.server.activity.presentation.ActivityListResponse;
+import com.iriro.server.activity.presentation.ActivityResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import tools.jackson.databind.ObjectMapper;
 import com.iriro.server.activity.domain.Activity;
 import com.iriro.server.activity.infrastructure.ActivityRepository;
@@ -17,9 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -263,5 +268,118 @@ public class ActivityService {
                 favoriteAdded,
                 simulated
         );
+    }
+
+    /**
+     * ACT-02 활동 기록 목록 조회
+     */
+    public ActivityListResponse getActivities(
+            Long memberId,
+            String month,
+            String activityType,
+            int page,
+            int size
+    ) {
+
+        // 1. 회원 확인
+        if (memberId == null || !memberRepository.existsById(memberId)) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
+        }
+
+        // 2. 요청 파라미터 검증
+        if (page < 0 || size < 1 || size > 100) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // 3. 활동 유형 검증
+        if (activityType != null && !activityType.isBlank()) {
+
+            if (!ACTIVITY_TYPES.contains(activityType)) {
+                throw new CustomException(ErrorCode.INVALID_REQUEST);
+            }
+        } else {
+            activityType = null;
+        }
+
+        // 4. 조회 월 설정
+        YearMonth yearMonth;
+
+        try {
+            yearMonth = (month == null || month.isBlank())
+                    ? YearMonth.now(ZoneId.of("Asia/Seoul"))
+                    : YearMonth.parse(month);
+
+        } catch (DateTimeException e) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        }
+
+        // 5. 한국 시간 기준 월 시작과 다음 달 시작
+        // DB에는 UTC LocalDateTime으로 저장되어 있으므로 UTC로 변환
+        ZoneOffset kst = ZoneOffset.ofHours(9);
+
+        LocalDateTime start = yearMonth
+                .atDay(1)
+                .atStartOfDay()
+                .atOffset(kst)
+                .withOffsetSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+
+        LocalDateTime end = yearMonth
+                .plusMonths(1)
+                .atDay(1)
+                .atStartOfDay()
+                .atOffset(kst)
+                .withOffsetSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+
+        // 6. 최신순 정렬 및 페이징
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                Sort.by(
+                        Sort.Order.desc("startedAt"),
+                        Sort.Order.desc("id")
+                )
+        );
+
+        // 7. 활동 목록 조회
+        Page<Activity> activities;
+
+        if (activityType == null) {
+
+            activities = activityRepository
+                    .findByMemberIdAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+                            memberId,
+                            start,
+                            end,
+                            pageable
+                    );
+
+        } else {
+
+            activities = activityRepository
+                    .findByMemberIdAndActivityTypeAndStartedAtGreaterThanEqualAndStartedAtLessThan(
+                            memberId,
+                            activityType,
+                            start,
+                            end,
+                            pageable
+                    );
+        }
+
+        // 8. 코스 이름을 포함한 응답 DTO 변환
+        Page<ActivityResponse> responsePage = activities.map(activity -> {
+
+            String routeName = routeRepository.findById(activity.getRouteId())
+                    .map(route -> route.getName())
+                    .orElseThrow(() ->
+                            new CustomException(ErrorCode.ROUTE_NOT_FOUND)
+                    );
+
+            return ActivityResponse.from(activity, routeName);
+        });
+
+        // 9. 페이징 응답 반환
+        return ActivityListResponse.from(responsePage);
     }
 }

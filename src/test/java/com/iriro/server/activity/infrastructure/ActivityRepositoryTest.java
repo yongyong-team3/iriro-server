@@ -65,7 +65,7 @@ class ActivityRepositoryTest {
         Member member = new Member("Aaa", "aaa");
         ReflectionTestUtils.setField(member, "id", 1L);
         Activity activity = Activity.builder()
-                .member(member)
+                .memberId(1L)
                 .routeId(1L)
                 .startPointId(1L)
                 .activityType("WALK")
