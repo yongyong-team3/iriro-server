@@ -33,6 +33,9 @@ public class KmaWeatherClient {
      * 기상청 초단기실황 / 초단기예보 데이터 통합 조회
      */
     public Map<String, Integer> fetchWeatherData(int nx, int ny) {
+        if (baseUrl == null || baseUrl.isBlank() || serviceKey == null || serviceKey.isBlank()) {
+            return Map.of();
+        }
 
         LocalDateTime now = LocalDateTime.now();
 
