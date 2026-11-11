@@ -6,7 +6,6 @@ import com.iriro.server.common.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import javax.naming.AuthenticationException;
 import jakarta.validation.ConstraintViolationException;
-import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -24,14 +23,14 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleCustomException(CustomException exception) {
         ErrorCode error = exception.getErrorCode();
         return ResponseEntity.status(error.getStatus())
-                .body(new ApiErrorResponse(error.getCode(), error.getMessage(), List.of()));
+                .body(new ApiErrorResponse(error.getCode(), error.getMessage(), null));
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiErrorResponse> handleAuthenticationException(AuthenticationException exception) {
         ErrorCode error = ErrorCode.UNAUTHORIZED_USER;
         return ResponseEntity.status(error.getStatus())
-                .body(new ApiErrorResponse(error.getCode(), error.getMessage(), List.of()));
+                .body(new ApiErrorResponse(error.getCode(), error.getMessage(), null));
     }
 
     @ExceptionHandler(ApiException.class)
@@ -39,48 +38,30 @@ public class ApiExceptionHandler {
         if (exception.getStatus().is4xxClientError() || exception.getStatus().is5xxServerError()) {
             log.warn("api failure code={} status={}", exception.getCode(), exception.getStatus().value());
         }
-        List<ApiErrorResponse.FieldError> errors = exception.getField() == null
-                ? List.of()
-                : List.of(new ApiErrorResponse.FieldError(exception.getField(), exception.getMessage()));
         return ResponseEntity.status(exception.getStatus())
-                .body(new ApiErrorResponse(exception.getCode(), exception.getMessage(), errors));
+                .body(new ApiErrorResponse(exception.getCode(), exception.getMessage(), null));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationException(
             MethodArgumentNotValidException exception
     ) {
-        List<ApiErrorResponse.FieldError> errors = exception.getBindingResult().getFieldErrors().stream()
-                .map(error -> new ApiErrorResponse.FieldError(error.getField(), "요청 값을 확인해 주세요."))
-                .toList();
-        return validationError(errors);
+        return validationError();
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiErrorResponse> handleConstraintViolation(ConstraintViolationException exception) {
-        List<ApiErrorResponse.FieldError> errors = exception.getConstraintViolations().stream()
-                .map(violation -> new ApiErrorResponse.FieldError(
-                        lastPathSegment(violation.getPropertyPath().toString()), "요청 값을 확인해 주세요."
-                ))
-                .toList();
-        return validationError(errors);
+        return validationError();
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ApiErrorResponse> handleHandlerMethodValidation(HandlerMethodValidationException exception) {
-        List<ApiErrorResponse.FieldError> errors = exception.getParameterValidationResults().stream()
-                .map(result -> {
-                    String field = result.getMethodParameter().getParameterName();
-                    return new ApiErrorResponse.FieldError(field == null ? "request" : field, "요청 값을 확인해 주세요.");
-                })
-                .distinct()
-                .toList();
-        return validationError(errors);
+        return validationError();
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiErrorResponse> handleArgumentTypeMismatch(MethodArgumentTypeMismatchException exception) {
-        return validationError(List.of(new ApiErrorResponse.FieldError(exception.getName(), "요청 값을 확인해 주세요.")));
+        return validationError();
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -88,23 +69,18 @@ public class ApiExceptionHandler {
             HttpMessageNotReadableException exception
     ) {
         return ResponseEntity.badRequest()
-                .body(new ApiErrorResponse("INVALID_REQUEST", "요청 본문 형식을 확인해 주세요.", List.of()));
+                .body(new ApiErrorResponse("INVALID_REQUEST", "요청 정보를 확인해 주세요.", null));
     }
 
-    private ResponseEntity<ApiErrorResponse> validationError(List<ApiErrorResponse.FieldError> errors) {
+    private ResponseEntity<ApiErrorResponse> validationError() {
         return ResponseEntity.badRequest()
-                .body(new ApiErrorResponse("VALIDATION_ERROR", "요청 필드를 확인해 주세요.", errors));
-    }
-
-    private String lastPathSegment(String path) {
-        int lastDot = path.lastIndexOf('.');
-        return lastDot < 0 ? path : path.substring(lastDot + 1);
+                .body(new ApiErrorResponse("INVALID_REQUEST", "요청 정보를 확인해 주세요.", null));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnexpectedException(Exception exception) {
         log.error("Unhandled request failure type={}", exception.getClass().getName());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ApiErrorResponse("INTERNAL_SERVER_ERROR", "요청을 처리하지 못했습니다.", List.of()));
+                .body(new ApiErrorResponse("INTERNAL_SERVER_ERROR", "요청을 처리하지 못했습니다.", null));
     }
 }

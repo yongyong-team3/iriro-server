@@ -1,5 +1,6 @@
 package com.iriro.server.member.presentation;
 
+import com.iriro.server.member.domain.NicknamePolicy;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
@@ -15,7 +16,7 @@ public class NicknameCheckRequest {
 
     @NotBlank(message = "닉네임 형식을 확인해 주세요.")
     @Pattern(
-            regexp = "^[a-zA-Z0-9가-힣]{2,12}$",
+            regexp = NicknamePolicy.REGEXP,
             message = "닉네임 형식을 확인해 주세요."
     )
     private String memberName;

@@ -34,7 +34,7 @@ public class NotificationSettingController {
     @ApiResponses({@ApiResponse(responseCode = "200", description = "알림 설정"),
             @ApiResponse(responseCode = "401", description = "인증 실패")})
     public ApiSuccessResponse<NotificationSettingResponse> get() {
-        return ApiSuccessResponse.of("NOTIFICATION_SETTING_SUCCESS", "알림 설정을 조회했습니다.",
+        return ApiSuccessResponse.of("SUCCESS", "조회되었습니다.",
                 settingService.get(currentMemberProvider.requireMemberId()));
     }
 
@@ -44,7 +44,7 @@ public class NotificationSettingController {
             @ApiResponse(responseCode = "400", description = "입력 오류"),
             @ApiResponse(responseCode = "401", description = "인증 실패")})
     public ApiSuccessResponse<NotificationSettingResponse> update(@Valid @RequestBody NotificationSettingUpdateRequest request) {
-        return ApiSuccessResponse.of("NOTIFICATION_SETTING_UPDATE_SUCCESS", "알림 설정을 변경했습니다.",
+        return ApiSuccessResponse.of("SUCCESS", "알림 설정이 변경되었습니다.",
                 settingService.update(currentMemberProvider.requireMemberId(), request.recoveryForecastEnabled()));
     }
 }

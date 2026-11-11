@@ -86,7 +86,9 @@ class AuthApiTest {
                 signupJson(email, "A".repeat(64) + "1", uniqueNickname()),
                 signupJson(email, PASSWORD, "x"),
                 signupJson(email, PASSWORD, "x".repeat(13)),
-                signupJson(email, PASSWORD, "bad name")
+                signupJson(email, PASSWORD, "bad name"),
+                signupJson(email, PASSWORD, "ab_"),
+                signupJson(email, PASSWORD, "가나🙂")
         }) {
             expectError(body, "/signup", 400, "INVALID_REQUEST");
         }
@@ -254,6 +256,6 @@ class AuthApiTest {
     }
 
     private String uniqueNickname() {
-        return "n" + UUID.randomUUID().toString().substring(0, 11);
+        return "n" + UUID.randomUUID().toString().replace("-", "").substring(0, 11);
     }
 }

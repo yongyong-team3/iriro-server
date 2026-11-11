@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.hasItems;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -31,6 +32,7 @@ class ApiDocumentationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/login'].post.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/v1/users/me'].get.security[0].bearerAuth").isArray())
                 .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+                .andExpect(jsonPath("$.components.schemas.ApiErrorResponse.properties.errors.type").value("null"))
                 .andExpect(jsonPath("$.paths['/api/v1/trails'].get.security").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/v1/trails/{trailId}/status'].get.summary").value("하천길 수위·AI 예측 조회"))
                 .andExpect(jsonPath("$.paths['/api/v1/routes/{routeId}/detours'].get.summary").value("우회 경로 조회"));
@@ -67,5 +69,29 @@ class ApiDocumentationTest {
                 .andExpect(jsonPath("$.paths['/api/v1/auth/email/login'].post.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/reissue'].post.security").isEmpty())
                 .andExpect(jsonPath("$.paths['/api/v1/auth/logout'].post.security").isEmpty());
+    }
+
+    @Test
+    void notificationRoutesDocumentPagingSettingsAndDeviceContracts() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paths['/api/v1/notifications'].get.parameters[*].name",
+                        hasItems("unreadOnly", "page", "size")))
+                .andExpect(jsonPath("$.paths['/api/v1/notifications'].get.responses['200'].content.application/json.schema").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/notifications'].get.responses['400'].content.application/json.schema").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/notifications'].get.security[0].bearerAuth").isArray())
+                .andExpect(jsonPath("$.components.schemas.NotificationListResponse.properties.content").exists())
+                .andExpect(jsonPath("$.components.schemas.NotificationListResponse.properties.totalElements").exists())
+                .andExpect(jsonPath("$.components.schemas.NotificationListResponse.properties.items").doesNotExist())
+                .andExpect(jsonPath("$.components.schemas.NotificationSettingResponse.properties.recoveryForecastEnabled").exists())
+                .andExpect(jsonPath("$.components.schemas.NotificationSettingResponse.properties.updatedAt").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/devices'].post.responses['201']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/devices'].post.responses['201'].content.application/json.schema").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/devices'].post.responses['200']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/devices'].post.responses['200'].content.application/json.schema").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/devices'].post.requestBody.content.application/json.schema").exists())
+                .andExpect(jsonPath("$.components.schemas.DeviceResponse.properties.deviceId").exists())
+                .andExpect(jsonPath("$.components.schemas.DeviceResponse.properties.installationId").doesNotExist())
+                .andExpect(jsonPath("$.paths['/api/v1/devices/{deviceId}'].delete.responses['204'].content").doesNotExist());
     }
 }

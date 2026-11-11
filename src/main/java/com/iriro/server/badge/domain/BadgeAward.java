@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "badge_awards")
@@ -30,7 +31,7 @@ public class BadgeAward {
     public BadgeAward(Member member, BadgeCode badgeCode) {
         this.id = new BadgeAwardId(member.getId(), badgeCode);
         this.member = member;
-        this.earnedAt = LocalDateTime.now();
+        this.earnedAt = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
     }
 
     public BadgeCode getBadgeCode() {

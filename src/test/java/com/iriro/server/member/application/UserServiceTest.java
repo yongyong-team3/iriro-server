@@ -3,9 +3,10 @@ package com.iriro.server.member.application;
 import com.iriro.server.activity.infrastructure.ActivityRepository;
 import com.iriro.server.badge.infrastructure.BadgeAwardRepository;
 import com.iriro.server.common.CustomException;
-import com.iriro.server.member.domain.EmailCredential;
+import com.iriro.server.common.ErrorCode;
+import com.iriro.server.auth.domain.EmailCredential;
 import com.iriro.server.member.domain.Member;
-import com.iriro.server.member.infrastructure.EmailCredentialRepository;
+import com.iriro.server.auth.infrastructure.EmailCredentialRepository;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import com.iriro.server.member.presentation.MyInfoResponse;
 import com.iriro.server.member.presentation.NicknameCheckResponse;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -66,7 +68,7 @@ class UserServiceTest {
             given(activityRepository.countByMemberId(1L)).willReturn(10L);
             given(activityRepository.sumDistanceByMemberId(1L)).willReturn(42_000L);
             given(badgeAwardRepository.countByMemberId(1L)).willReturn(3L);
-            given(notificationRepository.countByMemberIdAndIsReadFalse(1L)).willReturn(2L);
+            given(notificationRepository.countByMember_IdAndReadAtIsNull(1L)).willReturn(2L);
 
             // when
             MyInfoResponse result = userService.getMyInfo(1L);
@@ -91,7 +93,7 @@ class UserServiceTest {
             given(activityRepository.countByMemberId(1L)).willReturn(0L);
             given(activityRepository.sumDistanceByMemberId(1L)).willReturn(0L);
             given(badgeAwardRepository.countByMemberId(1L)).willReturn(0L);
-            given(notificationRepository.countByMemberIdAndIsReadFalse(1L)).willReturn(0L);
+            given(notificationRepository.countByMember_IdAndReadAtIsNull(1L)).willReturn(0L);
 
             // when
             MyInfoResponse result = userService.getMyInfo(1L);
@@ -157,6 +159,20 @@ class UserServiceTest {
 
             assertThat(member.getMemberName()).isEqualTo("OldName");
             assertThat(member.getMemberNameKey()).isEqualTo("oldname");
+        }
+
+        @Test
+        @DisplayName("중복 검사 뒤 다른 요청이 같은 닉네임을 저장하면 409로 처리한다")
+        void 동시_닉네임_충돌이면_예외() {
+            Member member = createMember(1L, "OldName");
+            given(memberRepository.findById(1L)).willReturn(Optional.of(member));
+            given(memberRepository.saveAndFlush(member))
+                    .willThrow(new DataIntegrityViolationException("uq_members_name_key"));
+
+            assertThatThrownBy(() -> userService.updateProfile(1L, new UpdateProfileRequest("NewName")))
+                    .isInstanceOf(CustomException.class)
+                    .satisfies(error -> assertThat(((CustomException) error).getErrorCode())
+                            .isEqualTo(ErrorCode.DUPLICATE_MEMBER_NAME));
         }
 
         @Test

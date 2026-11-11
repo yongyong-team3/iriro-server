@@ -25,7 +25,7 @@ public class NotificationSettingService {
     public NotificationSettingResponse get(Long memberId) {
         return settingRepository.findById(memberId)
                 .map(this::toResponse)
-                .orElseGet(() -> new NotificationSettingResponse(false, null));
+                .orElseGet(() -> new NotificationSettingResponse(false));
     }
 
     @Transactional
@@ -37,6 +37,6 @@ public class NotificationSettingService {
     }
 
     private NotificationSettingResponse toResponse(NotificationSetting setting) {
-        return new NotificationSettingResponse(setting.isRecoveryForecastEnabled(), setting.getUpdatedAt());
+        return new NotificationSettingResponse(setting.isRecoveryForecastEnabled());
     }
 }

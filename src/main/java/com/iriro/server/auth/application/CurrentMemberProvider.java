@@ -18,6 +18,6 @@ public class CurrentMemberProvider {
                 return id;
             }
         }
-        throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "로그인이 필요합니다.");
+        throw new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "인증 정보를 확인해 주세요.");
     }
 }

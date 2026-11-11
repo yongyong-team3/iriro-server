@@ -12,6 +12,7 @@ import com.iriro.server.auth.presentation.EmailSignupRequest;
 import com.iriro.server.auth.presentation.SocialLoginResponse;
 import com.iriro.server.common.application.ApiException;
 import com.iriro.server.member.domain.Member;
+import com.iriro.server.member.domain.NicknamePolicy;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -145,15 +146,10 @@ public class EmailAuthService {
     }
 
     private String normalizeNickname(String nickname) {
-        String normalized = nickname;
-        int length = normalized.codePointCount(0, normalized.length());
-        int keyLength = normalized.toLowerCase(Locale.ROOT).codePointCount(
-                0, normalized.toLowerCase(Locale.ROOT).length()
-        );
-        if (length < 2 || length > 12 || keyLength > 12) {
+        if (!NicknamePolicy.isValid(nickname)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "요청 정보를 확인해 주세요.", "memberName");
         }
-        return normalized;
+        return nickname;
     }
 
     private void validateBcryptInput(String password) {

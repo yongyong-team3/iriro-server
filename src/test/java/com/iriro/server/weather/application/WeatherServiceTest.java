@@ -5,6 +5,7 @@ import com.iriro.server.weather.domain.WeatherCondition;
 import com.iriro.server.weather.infrastructure.KmaWeatherClient;
 import com.iriro.server.weather.presentation.CurrentWeatherRequest;
 import com.iriro.server.weather.presentation.CurrentWeatherResponse;
+import com.iriro.server.common.application.ApiException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.mockito.Mockito.*;
@@ -52,6 +54,8 @@ class WeatherServiceTest {
         weatherData.put("T1H", 15);
         weatherData.put("PTY", 0);
         weatherData.put("SKY", 1);
+        weatherData.put("OBSERVED_DATE", 20261111);
+        weatherData.put("OBSERVED_TIME", 1200);
 
         GridCoordinateConverter.GridXY expectedGrid =
                 gridCoordinateConverter.convertToGrid(
@@ -80,7 +84,7 @@ class WeatherServiceTest {
                 .isEqualTo(WeatherCondition.SUNNY);
 
         assertThat(response.getObservedAt())
-                .isNotNull();
+                .isEqualTo(OffsetDateTime.parse("2026-11-11T12:00:00+09:00"));
 
         verify(kmaWeatherClient, times(1))
                 .fetchWeatherData(
@@ -217,34 +221,15 @@ class WeatherServiceTest {
     }
 
     @Test
-    @DisplayName("위도만 전달해도 기본 위치를 사용한다")
+    @DisplayName("위도만 전달하면 요청 오류이며 기상청을 호출하지 않는다")
     void getCurrentWeather_onlyLatitude() {
 
         // given
         CurrentWeatherRequest request =
                 new CurrentWeatherRequest(37.5665, null);
 
-        when(kmaWeatherClient.fetchWeatherData(anyInt(), anyInt()))
-                .thenReturn(new HashMap<>());
-
-        GridCoordinateConverter.GridXY expectedGrid =
-                gridCoordinateConverter.convertToGrid(
-                        37.2794,
-                        127.2274
-                );
-
-        // when
-        CurrentWeatherResponse response =
-                weatherService.getCurrentWeather(request);
-
-        // then
-        assertThat(response.getAreaName())
-                .isEqualTo("월촌교 주변");
-
-        verify(kmaWeatherClient)
-                .fetchWeatherData(
-                        expectedGrid.getX(),
-                        expectedGrid.getY()
-                );
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> weatherService.getCurrentWeather(request))
+                .isInstanceOf(ApiException.class);
+        verifyNoInteractions(kmaWeatherClient);
     }
 }

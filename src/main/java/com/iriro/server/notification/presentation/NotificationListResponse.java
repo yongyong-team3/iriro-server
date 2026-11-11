@@ -1,16 +1,19 @@
 package com.iriro.server.notification.presentation;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public record NotificationListResponse(
-        List<NotificationItem> items,
-        Long nextCursorId,
+        List<NotificationItem> content,
+        int page,
+        int size,
+        long totalElements,
+        int totalPages,
         boolean hasNext
 ) {
 
     public NotificationListResponse {
-        items = List.copyOf(items);
+        content = List.copyOf(content);
     }
 
     public record NotificationItem(
@@ -18,8 +21,9 @@ public record NotificationListResponse(
             String type,
             String title,
             String body,
-            LocalDateTime createdAt,
-            LocalDateTime readAt
+            Long trailId,
+            OffsetDateTime createdAt,
+            OffsetDateTime readAt
     ) {
     }
 }
