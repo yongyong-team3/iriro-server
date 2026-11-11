@@ -37,7 +37,7 @@ class BadgeApiTest {
     void authenticatedBadgeResponseIncludesKoreanOffset() throws Exception {
         Member member = memberRepository.saveAndFlush(new Member("Tester", "tester"));
         given(badgeService.getMyBadges(member.getId())).willReturn(BadgeListResponse.of(1, List.of(
-                BadgeElementResponse.of(BadgeCode.WALK_LOVER, 20, LocalDateTime.of(2026, 11, 11, 10, 30)),
+                BadgeElementResponse.of(BadgeCode.WALK_LOVER, 20, LocalDateTime.of(2026, 11, 11, 1, 30)),
                 BadgeElementResponse.of(BadgeCode.BIKE_RIDER, 2400, null)
         )));
 

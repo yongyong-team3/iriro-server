@@ -8,6 +8,7 @@ import lombok.Getter;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 
 @Getter
 @Builder
@@ -30,7 +31,8 @@ public class BadgeElementResponse {
                 .progress(progress)
                 .earned(earnedAt != null)
                 .earnedAt(earnedAt == null ? null
-                        : earnedAt.atZone(ZoneId.of("Asia/Seoul")).toOffsetDateTime())
+                        : earnedAt.atOffset(ZoneOffset.UTC)
+                                .atZoneSameInstant(ZoneId.of("Asia/Seoul")).toOffsetDateTime())
                 .build();
     }
 }
