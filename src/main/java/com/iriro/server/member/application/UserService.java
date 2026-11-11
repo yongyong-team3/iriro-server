@@ -10,6 +10,7 @@ import com.iriro.server.notification.infrastructure.NotificationRepository;
 import java.util.Locale;
 import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.MemberRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import com.iriro.server.member.presentation.MyInfoResponse;
 import com.iriro.server.member.presentation.NicknameCheckResponse;
 import com.iriro.server.member.presentation.UpdateProfileRequest;
@@ -76,6 +77,11 @@ public class UserService {
 
         // 3. 엔티티 수정 (JPA Dirty Checking으로 자동 update)
         member.updateMemberName(newMemberName);
+        try {
+            memberRepository.saveAndFlush(member);
+        } catch (DataIntegrityViolationException exception) {
+            throw new CustomException(ErrorCode.DUPLICATE_MEMBER_NAME);
+        }
 
         // 4. 응답 DTO 변환 및 반환
         return UpdateProfileResponse.from(member);

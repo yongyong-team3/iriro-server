@@ -47,7 +47,7 @@ class AuthConcurrencyTest {
         String email = UUID.randomUUID() + "@example.com";
         String body = """
                 {"email":"%s","password":"Password123","memberName":"n%s"}
-                """.formatted(email, UUID.randomUUID().toString().substring(0, 10));
+                """.formatted(email, UUID.randomUUID().toString().replace("-", "").substring(0, 10));
         List<MvcResult> results = race(() -> request("/signup", body));
         assertThat(results.stream().mapToInt(result -> result.getResponse().getStatus()).sorted().toArray())
                 .containsExactly(201, 409);
@@ -78,7 +78,7 @@ class AuthConcurrencyTest {
         String email = UUID.randomUUID() + "@example.com";
         request("/signup", """
                 {"email":"%s","password":"Password123","memberName":"n%s"}
-                """.formatted(email, UUID.randomUUID().toString().substring(0, 10)));
+                """.formatted(email, UUID.randomUUID().toString().replace("-", "").substring(0, 10)));
         JsonNode login = mapper.readTree(request("/email/login",
                 """
                 {"email":"%s","password":"Password123"}
