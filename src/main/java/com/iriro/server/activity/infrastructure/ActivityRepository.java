@@ -9,6 +9,6 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     long countByMemberId(Long memberId);
 
-    @Query("SELECT COALESCE(SUM(a.distanceMeters), 0L) FROM Activity a WHERE a.member.id = :memberId")
+    @Query("SELECT COALESCE(CAST(SUM(a.distanceMeters) AS long), 0L) FROM Activity a WHERE a.member.id = :memberId")
     long sumDistanceByMemberId(@Param("memberId") Long memberId);
 }

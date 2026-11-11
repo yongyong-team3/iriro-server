@@ -25,15 +25,15 @@ public class Activity {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    // 경로 ID (다른 팀원 담당)
+    // 경로 ID
     @Column(name = "route_id", nullable = false)
     private Long routeId;
 
-    // 출발 지점 ID (다른 팀원 담당)
+    // 출발 지점 ID
     @Column(name = "start_point_id", nullable = false)
     private Long startPointId;
 
-    // 우회 경로 ID (선택 사항)
+    // 우회 경로 ID
     @Column(name = "detour_id")
     private Long detourId;
 
@@ -53,7 +53,7 @@ public class Activity {
     @Column(name = "elapsed_seconds", nullable = false)
     private Integer elapsedSeconds;
 
-    // 이동 거리 (m)
+    // 이동 거리 (m 단위, DB: decimal(10,2))
     @Column(name = "distance_meters", nullable = false, precision = 10, scale = 2)
     private BigDecimal distanceMeters;
 
