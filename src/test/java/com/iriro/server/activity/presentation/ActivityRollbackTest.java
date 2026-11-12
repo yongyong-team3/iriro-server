@@ -2,7 +2,7 @@ package com.iriro.server.activity.presentation;
 
 import com.iriro.server.activity.infrastructure.ActivityRepository;
 import com.iriro.server.auth.application.CurrentMemberProvider;
-import com.iriro.server.favorite.application.FavoriteService;
+import com.iriro.server.badge.application.BadgeService;
 import com.iriro.server.favorite.infrastructure.FavoriteRepository;
 import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.MemberRepository;
@@ -41,7 +41,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
@@ -55,6 +56,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * 롤백·동시성은 "실제로 커밋/롤백되는 트랜잭션"에서만 확인할 수 있으므로
  * 이 클래스는 @Transactional 을 붙이지 않는다. 대신 @AfterEach 에서 직접 정리한다.
  * (테스트 DB 에 이 테스트용 데이터가 잠깐 커밋되었다가 삭제된다.)
+ *
+ * dev 의 ActivityService.save 는 한 트랜잭션 안에서
+ *   회원 잠금 -> 즐겨찾기 저장 -> 활동 저장(saveAndFlush) -> 배지 지급
+ * 순서로 처리한다. 마지막 단계인 배지 지급(BadgeService)을 실패시키면
+ * 이미 저장된 즐겨찾기와 활동이 둘 다 롤백되는지 확인할 수 있다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
@@ -68,7 +74,7 @@ class ActivityRollbackTest {
     @Autowired JdbcTemplate jdbcTemplate;
 
     @MockitoBean CurrentMemberProvider currentMemberProvider;
-    @MockitoBean FavoriteService favoriteService;      // ActivityService 가 이 Mock 을 사용한다
+    @MockitoBean BadgeService badgeService;      // 기본은 아무 일도 안 함, E03 에서만 예외를 던지게 한다
 
     private Long memberId;
     private Long trailId;
@@ -102,20 +108,19 @@ class ActivityRollbackTest {
     }
 
     @Test
-    @DisplayName("ACT-01-E03 즐겨찾기 저장이 실패하면 이미 저장한 활동도 롤백된다")
-    void E03_favoriteFailureRollsBackActivity() throws Exception {
-        when(favoriteService.addFavorite(anyLong(), anyLong()))
-                .thenThrow(new IllegalStateException("즐겨찾기 저장 실패 (테스트)"));
-
-        long activitiesBefore = activityRepository.count();
+    @DisplayName("ACT-01-E03 저장 도중 실패하면 이미 저장한 활동과 즐겨찾기가 둘 다 롤백된다")
+    void E03_failureRollsBackActivityAndFavorite() throws Exception {
+        // 즐겨찾기·활동이 모두 저장된 뒤의 마지막 단계(배지 지급)에서 실패하게 한다
+        doThrow(new IllegalStateException("배지 지급 실패 (테스트)"))
+                .when(badgeService).awardEarnedBadges(any(Member.class));
 
         Map<String, Object> payload = validPayload(routeId, startPointId);
         payload.put("saveAsFavorite", true);
 
         MvcResult result = postActivity(UUID.randomUUID().toString(), payload);
 
-        assertThat(result.getResponse().getStatus()).isNotEqualTo(201);
-        assertThat(activityRepository.count()).isEqualTo(activitiesBefore);
+        assertThat(result.getResponse().getStatus()).isEqualTo(500);
+        assertThat(countActivities()).isZero();
         assertThat(favoriteRepository.findByMemberIdAndRouteId(memberId, routeId)).isEmpty();
     }
 
@@ -125,8 +130,6 @@ class ActivityRollbackTest {
         Long walkOnlyRouteId = createRoute(trailId, "WALK 전용 코스", List.of("WALK"));
         Long walkOnlyStartPointId = createStartPoint(walkOnlyRouteId);
 
-        long activitiesBefore = activityRepository.count();
-
         Map<String, Object> payload = validPayload(walkOnlyRouteId, walkOnlyStartPointId);
         payload.put("activityType", "BIKE");
         payload.put("saveAsFavorite", true);
@@ -134,7 +137,7 @@ class ActivityRollbackTest {
         MvcResult result = postActivity(UUID.randomUUID().toString(), payload);
 
         assertThat(result.getResponse().getStatus()).isEqualTo(400);
-        assertThat(activityRepository.count()).isEqualTo(activitiesBefore);
+        assertThat(countActivities()).isZero();
         assertThat(favoriteRepository.findByMemberIdAndRouteId(memberId, walkOnlyRouteId)).isEmpty();
     }
 
@@ -189,6 +192,12 @@ class ActivityRollbackTest {
     // ---------------------------------------------------------------------
     // 헬퍼
     // ---------------------------------------------------------------------
+
+    private int countActivities() {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM activities WHERE member_id = ?", Integer.class, memberId);
+        return count == null ? 0 : count;
+    }
 
     private MvcResult postActivity(String idempotencyKey, Map<String, Object> payload) throws Exception {
         return mockMvc.perform(post("/api/v1/activities")

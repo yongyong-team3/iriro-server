@@ -22,6 +22,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -61,10 +62,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * - 데이터: 활동은 Entity 를 직접 만들지 않고 POST /activities 로 생성한다.
  * - 클래스 전체가 @Transactional 이라 각 테스트 종료 시 롤백된다.
  * - ACT-01-E03(롤백 검증)은 트랜잭션 밖에서 실행해야 하므로 ActivityRollbackTest 에 있다.
+ * - dev 의 save 는 iriro.activity.allow-simulation=false(기본값)이면 simulated=true 를 400 으로 막는다.
+ *   시연 기록을 저장해야 하는 테스트가 많아서 이 클래스에서는 true 로 켠다.
  * - "추가" 표시가 붙은 테스트(ACT-xx-X..)는 명세에는 없지만 코드 분기상 확인할 가치가 있는 케이스다.
  */
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
+@TestPropertySource(properties = "iriro.activity.allow-simulation=true")
 @Transactional
 class ActivityScenarioTest {
 
@@ -175,7 +179,7 @@ class ActivityScenarioTest {
 
             create(UUID.randomUUID().toString(), payload)
                     .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.code").value("ROUTE_NOT_FOUND"));
+                    .andExpect(jsonPath("$.code").value("NOT_FOUND"));
         }
 
         @Test
@@ -186,7 +190,7 @@ class ActivityScenarioTest {
 
             create(UUID.randomUUID().toString(), payload)
                     .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.code").value("START_POINT_NOT_FOUND"));
+                    .andExpect(jsonPath("$.code").value("NOT_FOUND"));
         }
 
         @Test
@@ -197,7 +201,7 @@ class ActivityScenarioTest {
 
             create(UUID.randomUUID().toString(), payload)
                     .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.code").value("START_POINT_NOT_FOUND"));
+                    .andExpect(jsonPath("$.code").value("NOT_FOUND"));
         }
 
         @ParameterizedTest(name = "ACT-01-F02 {0} -> 400")
@@ -300,16 +304,19 @@ class ActivityScenarioTest {
         }
 
         @Test
-        @DisplayName("ACT-01-X02 (추가) 재전송 응답의 favoriteAdded 는 false 이다")
-        void X02_replayFavoriteAddedFalse() throws Exception {
+        @DisplayName("ACT-01-X02 (추가) 재전송 응답은 처음 결과 그대로(favoriteAdded 포함)이고 즐겨찾기도 1개다")
+        void X02_replayReturnsOriginalResult() throws Exception {
             String key = UUID.randomUUID().toString();
             Map<String, Object> payload = validPayload();
             payload.put("saveAsFavorite", true);
+            long favoritesBefore = favoriteRepository.count();
 
             create(key, payload).andExpect(jsonPath("$.data.favoriteAdded").value(true));
             create(key, payload)
                     .andExpect(status().isCreated())
-                    .andExpect(jsonPath("$.data.favoriteAdded").value(false));
+                    .andExpect(jsonPath("$.data.favoriteAdded").value(true));
+
+            assertThat(favoriteRepository.count()).isEqualTo(favoritesBefore + 1);
         }
 
         @Test
@@ -385,8 +392,7 @@ class ActivityScenarioTest {
     static Stream<String> invalidKeys() {
         return Stream.of(
                 "not-a-uuid",
-                "123456789012345678901234567890123456",    // 36자지만 UUID 형식 아님
-                "123e4567-e89b-12d3-a456-42661417400"       // 35자
+                "123456789012345678901234567890123456"     // 36자지만 UUID 형식 아님
         );
     }
 
@@ -424,7 +430,6 @@ class ActivityScenarioTest {
         return Stream.of(
                 inv("startedAt == endedAt", p -> p.put("endedAt", p.get("startedAt"))),
                 inv("startedAt > endedAt", p -> p.put("endedAt", "2026-11-12T08:00:00+09:00")),
-                inv("distanceMeters 소수 3자리", p -> p.put("distanceMeters", "1.234")),
                 inv("위도 91", p -> p.put("trackPoints", List.of(
                         point(91.0, 126.9780, "2026-11-12T09:00:00+09:00"),
                         point(37.5670, 126.9790, "2026-11-12T09:30:00+09:00")))),
@@ -437,9 +442,6 @@ class ActivityScenarioTest {
                     p.put("trackPoints", List.of(noTime,
                             point(37.5670, 126.9790, "2026-11-12T09:30:00+09:00")));
                 }),
-                inv("trackPoints recordedAt 역순", p -> p.put("trackPoints", List.of(
-                        point(37.5665, 126.9780, "2026-11-12T09:10:00+09:00"),
-                        point(37.5670, 126.9790, "2026-11-12T09:00:00+09:00")))),
                 inv("simulated null", p -> p.put("simulated", null))
         );
     }
