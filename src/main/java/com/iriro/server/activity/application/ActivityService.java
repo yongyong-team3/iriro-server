@@ -1,33 +1,47 @@
 package com.iriro.server.activity.application;
 
-
-import tools.jackson.databind.JsonNode;
-import com.iriro.server.activity.presentation.*;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import tools.jackson.databind.ObjectMapper;
 import com.iriro.server.activity.domain.Activity;
 import com.iriro.server.activity.infrastructure.ActivityRepository;
+import com.iriro.server.activity.presentation.*;
+import com.iriro.server.badge.application.BadgeService;
 import com.iriro.server.common.CustomException;
 import com.iriro.server.common.ErrorCode;
-import com.iriro.server.favorite.application.FavoriteService;
+import com.iriro.server.common.application.ApiException;
+import com.iriro.server.favorite.domain.Favorite;
+import com.iriro.server.favorite.infrastructure.FavoriteRepository;
+import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import com.iriro.server.trail.domain.Route;
 import com.iriro.server.trail.infrastructure.RouteRepository;
 import com.iriro.server.trail.infrastructure.RouteStartPointRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.math.BigDecimal;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.*;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 
+/**
+ * 충돌 해결본
+ *  - ACT-01 저장(save): dev 구현 그대로 (회원 행 잠금으로 같은 키 재시도 직렬화, 배지 지급, 시연 허용 설정)
+ *  - ACT-02~05 조회: 기존 구현 유지
+ *
+ * dev 코드의 필드 이름(activities, members, ...)은 조회 메서드의 지역 변수(activities)와 겹쳐서
+ * 조회 메서드가 쓰던 이름(activityRepository, memberRepository, ...)으로 통일했다.
+ */
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ActivityService {
 
@@ -38,278 +52,114 @@ public class ActivityService {
     private final MemberRepository memberRepository;
     private final RouteRepository routeRepository;
     private final RouteStartPointRepository startPointRepository;
-
-    private final FavoriteService favoriteService;
-    private final ActivityHashGenerator hashGenerator;
+    private final FavoriteRepository favoriteRepository;
+    private final BadgeService badgeService;
     private final ObjectMapper objectMapper;
 
-    /**
-     * ACT-01 활동 기록 저장
-     */
+    @Value("${iriro.activity.allow-simulation:false}")
+    private boolean allowSimulation;
+
+    public ActivityService(ActivityRepository activityRepository, MemberRepository memberRepository,
+                           RouteRepository routeRepository, RouteStartPointRepository startPointRepository,
+                           FavoriteRepository favoriteRepository, BadgeService badgeService,
+                           ObjectMapper objectMapper) {
+        this.activityRepository = activityRepository;
+        this.memberRepository = memberRepository;
+        this.routeRepository = routeRepository;
+        this.startPointRepository = startPointRepository;
+        this.favoriteRepository = favoriteRepository;
+        this.badgeService = badgeService;
+        this.objectMapper = objectMapper;
+    }
+
+    // =====================================================================
+    // ACT-01 활동 기록 저장 (dev)
+    // =====================================================================
+
     @Transactional
-    public ActivityCreateResponse createActivity(
-            Long memberId,
-            String idempotencyKey,
-            ActivityCreateRequest request
-    ) {
-
-        // 1. 회원 확인
-        if (memberId == null || !memberRepository.existsById(memberId)) {
-            throw new CustomException(ErrorCode.UNAUTHORIZED_USER);
-        }
-
-        // 2. 요청 검증
-        validateIdempotencyKey(idempotencyKey);
-        validateRequest(request);
-
-        // 3. 코스 확인
-        Route route = routeRepository.findById(request.getRouteId())
-                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_NOT_FOUND));
-
-        // 3-1. 코스가 지원하는 활동 유형인지 확인
-        // (DB 의 fk_activity_type 위반이 500 으로 올라가지 않도록 먼저 400 으로 거른다)
-        if (!route.getActivityTypes().contains(request.getActivityType())) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
-
-        // 4. 출발점 및 코스 소속 여부 확인
-        if (!startPointRepository.existsByIdAndRouteId(
-                request.getStartPointId(),
-                request.getRouteId()
-        )) {
-            throw new CustomException(ErrorCode.START_POINT_NOT_FOUND);
-        }
-
-        // 5. 시연 여부 정규화
-        boolean simulated = Boolean.TRUE.equals(request.getSimulated());
-
-        // 6. 요청 해시 생성
-        String requestHash = hashGenerator.generate(
-                request,
-                simulated
-        );
-
-        // 7. 기존 요청 확인
-        Activity existing = activityRepository
-                .findByMemberIdAndIdempotencyKey(
-                        memberId,
-                        idempotencyKey
-                )
-                .orElse(null);
-
+    public ActivitySaveResponse save(Long memberId, String key, ActivitySaveRequest request) {
+        validateKeyAndTime(key, request);
+        if (request.isSimulated() && !allowSimulation) throw invalid();
+        // 회원 단위 잠금으로 같은 키 재시도와 배지 중복 지급을 직렬화한다.
+        Member member = memberRepository.findByIdForUpdate(memberId)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "인증 정보를 확인해 주세요."));
+        String hash = requestHash(request);
+        Activity existing = activityRepository.findByMemberIdAndIdempotencyKey(memberId, key).orElse(null);
         if (existing != null) {
-
-            // 동일 키에 다른 요청 내용이면 충돌
-            if (!existing.getRequestHash().equals(requestHash)) {
-                throw new CustomException(
-                        ErrorCode.IDEMPOTENCY_CONFLICT
-                );
+            if (!existing.getRequestHash().equals(hash)) {
+                throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_CONFLICT", "이미 처리한 요청과 내용이 다릅니다.");
             }
-
-            // 동일 요청이면 기존 활동 반환
-            return createResponse(
-                    existing.getId(),
-                    false,
-                    existing.isSimulated()
-            );
+            return new ActivitySaveResponse(existing.getId(), existing.isFavoriteAdded(), existing.isSimulated());
         }
 
-        // 8. GPS 경로 JSON 변환
-        String trackPointsJson;
+        Route route = routeRepository.findById(request.routeId()).orElseThrow(this::notFound);
+        if (!startPointRepository.existsByIdAndRouteId(request.startPointId(), request.routeId())) throw notFound();
+        if (!route.getActivityTypes().contains(request.activityType())) throw invalid();
 
-        try {
-            trackPointsJson = objectMapper.writeValueAsString(
-                    request.getTrackPoints()
-            );
-        } catch (Exception e) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
-
-        // 9. 활동 Entity 생성
-        Activity activity = Activity.builder()
-                .memberId(memberId)
-                .routeId(request.getRouteId())
-                .startPointId(request.getStartPointId())
-                .activityType(request.getActivityType())
-                .startedAt(toUtc(request.getStartedAt()))
-                .endedAt(toUtc(request.getEndedAt()))
-                .elapsedSeconds(request.getElapsedSeconds())
-                .distanceMeters(request.getDistanceMeters())
-                .trackPointsJson(trackPointsJson)
-                .idempotencyKey(idempotencyKey)
-                .requestHash(requestHash)
-                .createdAt(LocalDateTime.now(ZoneOffset.UTC))
-                .simulated(simulated)
-                .build();
-
-        // 10. 활동 저장
-        Activity saved = activityRepository.saveAndFlush(activity);
-
-        // 11. 즐겨찾기 추가
         boolean favoriteAdded = false;
-
-        if (Boolean.TRUE.equals(request.getSaveAsFavorite())) {
-            favoriteAdded = favoriteService.addFavorite(
-                    memberId,
-                    request.getRouteId()
-            );
+        if (request.shouldSaveFavorite()
+                && favoriteRepository.findByMemberIdAndRouteId(memberId, route.getId()).isEmpty()) {
+            favoriteRepository.save(new Favorite(member, route));
+            favoriteAdded = true;
         }
 
-        // 12. 응답 생성
-        return createResponse(
-                saved.getId(),
-                favoriteAdded,
-                simulated
-        );
+        Activity activity = activityRepository.saveAndFlush(Activity.builder()
+                .member(member).routeId(route.getId()).startPointId(request.startPointId())
+                .activityType(request.activityType())
+                .startedAt(utc(request.startedAt())).endedAt(utc(request.endedAt()))
+                .elapsedSeconds(request.elapsedSeconds()).distanceMeters(request.distanceMeters())
+                .trackPointsJson(trackJson(request)).simulated(request.isSimulated())
+                .favoriteAdded(favoriteAdded).idempotencyKey(key).requestHash(hash).build());
+        if (!activity.isSimulated()) badgeService.awardEarnedBadges(member);
+        return new ActivitySaveResponse(activity.getId(), favoriteAdded, activity.isSimulated());
     }
 
-    /**
-     * 같은 Idempotency-Key 로 이미 저장된 활동이 있으면 그 결과를 반환한다.
-     *
-     * 동시에 같은 키로 요청이 들어와 한쪽이 유니크 제약 위반으로 실패했을 때,
-     * ActivityCreateFacade 가 (실패한 트랜잭션이 끝난 뒤) 새 트랜잭션에서 호출한다.
-     *
-     * @return 기존 활동이 없으면 empty
-     * @throws CustomException 같은 키에 다른 요청 내용이면 IDEMPOTENCY_CONFLICT
-     */
-    public Optional<ActivityCreateResponse> findExistingResult(
-            Long memberId,
-            String idempotencyKey,
-            ActivityCreateRequest request
-    ) {
-
-        boolean simulated = Boolean.TRUE.equals(request.getSimulated());
-        String requestHash = hashGenerator.generate(request, simulated);
-
-        return activityRepository
-                .findByMemberIdAndIdempotencyKey(memberId, idempotencyKey)
-                .map(existing -> {
-
-                    if (!existing.getRequestHash().equals(requestHash)) {
-                        throw new CustomException(ErrorCode.IDEMPOTENCY_CONFLICT);
-                    }
-
-                    return createResponse(
-                            existing.getId(),
-                            false,
-                            existing.isSimulated()
-                    );
-                });
-    }
-
-    /**
-     * UUID 검증
-     */
-    private void validateIdempotencyKey(String key) {
-
-        if (key == null || key.length() != 36) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
-
+    private void validateKeyAndTime(String key, ActivitySaveRequest request) {
         try {
             UUID.fromString(key);
-        } catch (IllegalArgumentException e) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
+        } catch (RuntimeException exception) {
+            throw invalid();
+        }
+        if (request.startedAt() == null || request.endedAt() == null
+                || !request.endedAt().toInstant().isAfter(request.startedAt().toInstant())) throw invalid();
+    }
+
+    private String requestHash(ActivitySaveRequest request) {
+        try {
+            ObjectNode normalized = objectMapper.valueToTree(request);
+            normalized.put("simulated", request.isSimulated());
+            normalized.put("saveAsFavorite", request.shouldSaveFavorite());
+            byte[] bytes = objectMapper.writeValueAsBytes(normalized);
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (RuntimeException | NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("Cannot hash activity request", exception);
         }
     }
 
-    /**
-     * 활동 데이터 검증
-     */
-    private void validateRequest(ActivityCreateRequest request) {
-
-        if (request == null ||
-                request.getRouteId() == null ||
-                request.getStartPointId() == null ||
-                request.getActivityType() == null ||
-                request.getStartedAt() == null ||
-                request.getEndedAt() == null ||
-                request.getElapsedSeconds() == null ||
-                request.getDistanceMeters() == null ||
-                request.getTrackPoints() == null) {
-
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
-
-        if (!ACTIVITY_TYPES.contains(request.getActivityType())) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
-
-        if (!request.getStartedAt().isBefore(request.getEndedAt())) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
-
-        if (request.getElapsedSeconds() <= 0 ||
-                request.getDistanceMeters().compareTo(BigDecimal.ZERO) <= 0) {
-
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
-
-        if (request.getTrackPoints().size() < 2) {
-            throw new CustomException(ErrorCode.INVALID_REQUEST);
-        }
-
-        OffsetDateTime previousTime = null;
-
-        for (ActivityCreateRequest.TrackPoint point : request.getTrackPoints()) {
-
-            if (point == null ||
-                    point.getLatitude() == null ||
-                    point.getLongitude() == null ||
-                    point.getRecordedAt() == null) {
-
-                throw new CustomException(ErrorCode.INVALID_REQUEST);
-            }
-
-            double latitude = point.getLatitude();
-            double longitude = point.getLongitude();
-
-            if (!Double.isFinite(latitude) ||
-                    !Double.isFinite(longitude) ||
-                    latitude < -90 || latitude > 90 ||
-                    longitude < -180 || longitude > 180) {
-
-                throw new CustomException(ErrorCode.INVALID_REQUEST);
-            }
-
-            if (previousTime != null &&
-                    point.getRecordedAt().isBefore(previousTime)) {
-
-                throw new CustomException(ErrorCode.INVALID_REQUEST);
-            }
-
-            previousTime = point.getRecordedAt();
+    private String trackJson(ActivitySaveRequest request) {
+        try {
+            return objectMapper.writeValueAsString(request.trackPoints());
+        } catch (RuntimeException exception) {
+            throw new IllegalStateException("Cannot serialize track points", exception);
         }
     }
 
-    /**
-     * OffsetDateTime -> UTC LocalDateTime
-     */
-    private LocalDateTime toUtc(OffsetDateTime dateTime) {
-
-        return dateTime
-                .withOffsetSameInstant(ZoneOffset.UTC)
-                .toLocalDateTime();
+    private LocalDateTime utc(java.time.OffsetDateTime time) {
+        return LocalDateTime.ofInstant(time.toInstant(), ZoneOffset.UTC);
     }
 
-    /**
-     * 응답 생성
-     */
-    private ActivityCreateResponse createResponse(
-            Long activityId,
-            boolean favoriteAdded,
-            boolean simulated
-    ) {
-        return new ActivityCreateResponse(
-                activityId,
-                favoriteAdded,
-                simulated
-        );
+    private ApiException invalid() {
+        return new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", "요청 정보를 확인해 주세요.");
     }
 
-    /**
-     * ACT-02 활동 기록 목록 조회
-     */
+    private ApiException notFound() {
+        return new ApiException(HttpStatus.NOT_FOUND, "NOT_FOUND", "대상을 찾을 수 없습니다.");
+    }
+
+    // =====================================================================
+    // ACT-02 활동 기록 목록 조회
+    // =====================================================================
+
     public ActivityListResponse getActivities(
             Long memberId,
             String month,
@@ -419,9 +269,11 @@ public class ActivityService {
         // 9. 페이징 응답 반환
         return ActivityListResponse.from(responsePage);
     }
-    /**
-     * ACT-03 활동 기록 상세 조회
-     */
+
+    // =====================================================================
+    // ACT-03 활동 기록 상세 조회
+    // =====================================================================
+
     public ActivityDetailResponse getActivityDetail(
             Long memberId,
             Long activityId
@@ -514,9 +366,11 @@ public class ActivityService {
             return null;
         }
     }
-    /**
-     * ACT-04 주간 활동 통계 조회
-     */
+
+    // =====================================================================
+    // ACT-04 주간 활동 통계 조회
+    // =====================================================================
+
     public ActivityWeeklyStatsResponse getWeeklyStats(
             Long memberId,
             String date
@@ -686,9 +540,11 @@ public class ActivityService {
 
         private long elapsedSeconds = 0;
     }
-    /**
-     * ACT-05 월간 활동 통계 조회
-     */
+
+    // =====================================================================
+    // ACT-05 월간 활동 통계 조회
+    // =====================================================================
+
     public ActivityMonthlyStatsResponse getMonthlyStats(
             Long memberId,
             String month

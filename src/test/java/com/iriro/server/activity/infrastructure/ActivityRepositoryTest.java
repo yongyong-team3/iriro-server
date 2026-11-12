@@ -115,6 +115,7 @@ class ActivityRepositoryTest {
                         started_at TIMESTAMP NOT NULL, ended_at TIMESTAMP NOT NULL,
                         elapsed_seconds INT NOT NULL, distance_meters DECIMAL(10,2) NOT NULL,
                         track_points_json LONGTEXT NOT NULL, simulated BOOLEAN NOT NULL,
+                        favorite_added BOOLEAN NOT NULL DEFAULT FALSE,
                         idempotency_key VARCHAR(64) NOT NULL, request_hash CHAR(64) NOT NULL,
                         created_at TIMESTAMP NOT NULL)
                     """);

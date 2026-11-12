@@ -1,6 +1,5 @@
 package com.iriro.server.common.presentation;
 
-import com.iriro.server.common.ErrorResponse;
 import com.iriro.server.common.application.ApiException;
 import com.iriro.server.common.CustomException;
 import com.iriro.server.common.ErrorCode;
