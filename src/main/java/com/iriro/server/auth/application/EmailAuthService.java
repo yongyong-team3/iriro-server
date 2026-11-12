@@ -14,6 +14,7 @@ import com.iriro.server.common.application.ApiException;
 import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.domain.NicknamePolicy;
 import com.iriro.server.member.infrastructure.MemberRepository;
+import com.iriro.server.member.application.ProfilePhotoService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -37,6 +38,7 @@ public class EmailAuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenService jwtTokenService;
     private final TokenSessionService tokenSessionService;
+    private final ProfilePhotoService profilePhotoService;
     private final Clock clock = Clock.systemUTC();
 
     public EmailAuthService(
@@ -45,7 +47,8 @@ public class EmailAuthService {
             RefreshSessionRepository refreshSessionRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenService jwtTokenService,
-            TokenSessionService tokenSessionService
+            TokenSessionService tokenSessionService,
+            ProfilePhotoService profilePhotoService
     ) {
         this.memberRepository = memberRepository;
         this.emailCredentialRepository = emailCredentialRepository;
@@ -53,6 +56,7 @@ public class EmailAuthService {
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenService = jwtTokenService;
         this.tokenSessionService = tokenSessionService;
+        this.profilePhotoService = profilePhotoService;
     }
 
     @Transactional
@@ -100,7 +104,8 @@ public class EmailAuthService {
         AuthTokenResponse tokens = tokenSessionService.issueTokens(member);
         return new SocialLoginResponse(tokens.accessToken(), tokens.refreshToken(), tokens.tokenType(),
                 tokens.accessTokenExpiresInSeconds(), tokens.refreshTokenExpiresInSeconds(),
-                false, false, new SocialLoginResponse.MemberInfo(member.getId(), member.getMemberName(), null));
+                false, false, new SocialLoginResponse.MemberInfo(member.getId(), member.getMemberName(),
+                        profilePhotoService.urlIfPresent(member.getId())));
     }
 
     @Transactional

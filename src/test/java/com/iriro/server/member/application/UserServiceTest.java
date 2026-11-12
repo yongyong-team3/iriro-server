@@ -8,6 +8,7 @@ import com.iriro.server.auth.domain.EmailCredential;
 import com.iriro.server.member.domain.Member;
 import com.iriro.server.auth.infrastructure.EmailCredentialRepository;
 import com.iriro.server.member.infrastructure.MemberRepository;
+import com.iriro.server.member.infrastructure.MemberProfilePhotoRepository;
 import com.iriro.server.member.presentation.MyInfoResponse;
 import com.iriro.server.member.presentation.NicknameCheckResponse;
 import com.iriro.server.member.presentation.UpdateProfileRequest;
@@ -40,6 +41,8 @@ class UserServiceTest {
     @Mock BadgeAwardRepository badgeAwardRepository;
     @Mock EmailCredentialRepository emailCredentialRepository;
     @Mock NotificationRepository notificationRepository;
+    @Mock MemberProfilePhotoRepository profilePhotos;
+    @Mock ProfilePhotoService profilePhotoService;
 
     @InjectMocks
     UserService userService;
@@ -69,6 +72,7 @@ class UserServiceTest {
             given(activityRepository.sumRealDistanceByMemberId(1L)).willReturn(42_000L);
             given(badgeAwardRepository.countByMemberId(1L)).willReturn(3L);
             given(notificationRepository.countByMember_IdAndReadAtIsNull(1L)).willReturn(2L);
+            given(profilePhotoService.urlIfPresent(1L)).willReturn("/api/v1/users/1/photo");
 
             // when
             MyInfoResponse result = userService.getMyInfo(1L);
@@ -81,6 +85,7 @@ class UserServiceTest {
             assertThat(result.getTotalDistanceMeters()).isEqualTo(42_000L);
             assertThat(result.getEarnedBadgeCount()).isEqualTo(3L);
             assertThat(result.getUnreadNotificationCount()).isEqualTo(2L);
+            assertThat(result.getProfileImageUrl()).isEqualTo("/api/v1/users/1/photo");
         }
 
         @Test
@@ -132,6 +137,7 @@ class UserServiceTest {
             Member member = createMember(1L, "OldName");
             given(memberRepository.findById(1L)).willReturn(Optional.of(member));
             given(memberRepository.existsByMemberNameKeyAndIdNot("newname", 1L)).willReturn(false);
+            given(profilePhotoService.urlIfPresent(1L)).willReturn("/api/v1/users/1/photo");
 
             // when
             UpdateProfileResponse result = userService.updateProfile(1L, new UpdateProfileRequest("NewName"));
@@ -139,6 +145,7 @@ class UserServiceTest {
             // then
             assertThat(result.getMemberId()).isEqualTo(1L);
             assertThat(result.getMemberName()).isEqualTo("NewName");
+            assertThat(result.getProfileImageUrl()).isEqualTo("/api/v1/users/1/photo");
             assertThat(member.getMemberName()).isEqualTo("NewName");
             assertThat(member.getMemberNameKey()).isEqualTo("newname");
             verify(memberRepository).existsByMemberNameKeyAndIdNot("newname", 1L);

@@ -13,11 +13,11 @@ public class UpdateProfileResponse {
     @Schema(example = "용용이") private String memberName;
     @Schema(nullable = true) private String profileImageUrl;
 
-    public static UpdateProfileResponse from(Member member) {
+    public static UpdateProfileResponse from(Member member, String profileImageUrl) {
         return UpdateProfileResponse.builder()
                 .memberId(member.getId())
                 .memberName(member.getMemberName())
-                .profileImageUrl(null)
+                .profileImageUrl(profileImageUrl)
                 .build();
     }
 }

@@ -29,6 +29,15 @@ CREATE TABLE email_credentials (
         REFERENCES members (id) ON DELETE CASCADE
 );
 
+CREATE TABLE member_profile_photos (
+    member_id BIGINT NOT NULL PRIMARY KEY,
+    content_type VARCHAR(32) NOT NULL,
+    content LONGBLOB NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    CONSTRAINT fk_profile_photo_member FOREIGN KEY (member_id)
+        REFERENCES members (id) ON DELETE CASCADE
+);
+
 CREATE TABLE refresh_sessions (
     id BIGINT NOT NULL AUTO_INCREMENT,
     member_id BIGINT NOT NULL,

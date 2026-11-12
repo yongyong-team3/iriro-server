@@ -25,13 +25,14 @@ public class MyInfoResponse {
             long totalActivityCount,
             long totalDistanceMeters,
             long earnedBadgeCount,
-            long unreadNotificationCount
+            long unreadNotificationCount,
+            String profileImageUrl
     ) {
         return MyInfoResponse.builder()
                 .memberId(member.getId())
                 .memberName(member.getMemberName())
                 .email(email)
-                .profileImageUrl(null)
+                .profileImageUrl(profileImageUrl)
                 .totalActivityCount(totalActivityCount)
                 .totalDistanceMeters(totalDistanceMeters)
                 .earnedBadgeCount(earnedBadgeCount)

@@ -7,6 +7,7 @@ import com.iriro.server.auth.presentation.AuthTokenResponse;
 import com.iriro.server.auth.presentation.SocialLoginResponse;
 import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.MemberRepository;
+import com.iriro.server.member.application.ProfilePhotoService;
 import com.iriro.server.common.application.ApiException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -19,15 +20,18 @@ public class SocialAccountLoginService {
     private final SocialAccountRepository socialAccountRepository;
     private final MemberRepository memberRepository;
     private final TokenSessionService tokenSessionService;
+    private final ProfilePhotoService profilePhotoService;
 
     public SocialAccountLoginService(
             SocialAccountRepository socialAccountRepository,
             MemberRepository memberRepository,
-            TokenSessionService tokenSessionService
+            TokenSessionService tokenSessionService,
+            ProfilePhotoService profilePhotoService
     ) {
         this.socialAccountRepository = socialAccountRepository;
         this.memberRepository = memberRepository;
         this.tokenSessionService = tokenSessionService;
+        this.profilePhotoService = profilePhotoService;
     }
 
     @Transactional
@@ -39,7 +43,8 @@ public class SocialAccountLoginService {
         return new SocialLoginResponse(tokens.accessToken(), tokens.refreshToken(), tokens.tokenType(),
                 tokens.accessTokenExpiresInSeconds(), tokens.refreshTokenExpiresInSeconds(), existing.isEmpty(),
                 member.getMemberName() == null,
-                new SocialLoginResponse.MemberInfo(member.getId(), member.getMemberName(), null));
+                new SocialLoginResponse.MemberInfo(member.getId(), member.getMemberName(),
+                        profilePhotoService.urlIfPresent(member.getId())));
     }
 
     private SocialAccount createSocialAccount(SocialProvider provider, String providerUserId) {
