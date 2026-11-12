@@ -14,7 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name="즐겨찾기")
+@Tag(name = "즐겨찾기")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/favorites")
@@ -44,10 +44,10 @@ public class FavoriteController {
     @GetMapping
     public ResponseEntity<ApiResponse<FavoriteListResponse>> getFavorites() {
 
+        Long memberId = currentMemberProvider.requireMemberId();
+
         FavoriteListResponse responseData =
-                favoriteService.getFavorites(
-                        currentMemberProvider.requireMemberId()
-                );
+                favoriteService.getFavorites(memberId);
 
         return ResponseEntity.ok(
                 ApiResponse.success("조회되었습니다.", responseData)
@@ -88,12 +88,15 @@ public class FavoriteController {
     public ResponseEntity<ApiResponse<FavoriteCreateResponse>> addFavorite(
             @Valid @RequestBody FavoriteCreateRequest request
     ) {
-        FavoriteAddResult result = favoriteService.addFavorite(
-                currentMemberProvider.requireMemberId(),
-                request
-        );
 
-        HttpStatus status = result.created() ? HttpStatus.CREATED : HttpStatus.OK;
+        Long memberId = currentMemberProvider.requireMemberId();
+
+        FavoriteAddResult result =
+                favoriteService.addFavorite(memberId, request);
+
+        HttpStatus status = result.created()
+                ? HttpStatus.CREATED
+                : HttpStatus.OK;
 
         return ResponseEntity.status(status).body(
                 ApiResponse.success("즐겨찾기에 저장되었습니다.", result.response())
@@ -126,10 +129,9 @@ public class FavoriteController {
             @PathVariable Long favoriteId
     ) {
 
-        favoriteService.deleteFavorite(
-                currentMemberProvider.requireMemberId(),
-                favoriteId
-        );
+        Long memberId = currentMemberProvider.requireMemberId();
+
+        favoriteService.deleteFavorite(memberId, favoriteId);
 
         return ResponseEntity.noContent().build();
     }
