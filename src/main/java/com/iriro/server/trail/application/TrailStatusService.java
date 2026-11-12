@@ -65,7 +65,7 @@ public class TrailStatusService {
             return unavailable(trailId, text(body.path("station"), "name"),
                     "시연 데이터는 현재 환경에서 제공하지 않습니다. 공식 통제 미확인");
         }
-        if (!"replay".equals(source) && !"hrfco".equals(source)) {
+        if (!"replay".equals(source) && !"hrfco".equals(source) && !"safetydata".equals(source)) {
             return unavailable(trailId, null, "수위 데이터 출처를 확인할 수 없습니다. 공식 통제 미확인");
         }
         String dataSource = "replay".equals(source) ? "REPLAY" : "LIVE";
