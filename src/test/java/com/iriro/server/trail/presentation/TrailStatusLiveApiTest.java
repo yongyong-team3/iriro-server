@@ -85,6 +85,30 @@ class TrailStatusLiveApiTest {
     }
 
     @Test
+    void safetyDataObservationIsLiveAndPartialWithoutRain() throws Exception {
+        mode.set("SAFETYDATA");
+        Long trailId = insertLinkedTrail();
+        mockMvc.perform(get("/api/v1/trails/{trailId}/status", trailId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dataSource").value("LIVE"))
+                .andExpect(jsonPath("$.data.dataStatus").value("PARTIAL"))
+                .andExpect(jsonPath("$.data.currentWaterLevelMeters").value(1.2))
+                .andExpect(jsonPath("$.data.predictedWaterLevelMeters").value((String) null));
+    }
+
+    @Test
+    void oldSafetyDataObservationIsHiddenAsStale() throws Exception {
+        mode.set("SAFETYDATA_STALE");
+        Long trailId = insertLinkedTrail();
+        mockMvc.perform(get("/api/v1/trails/{trailId}/status", trailId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dataSource").value("LIVE"))
+                .andExpect(jsonPath("$.data.dataStatus").value("STALE"))
+                .andExpect(jsonPath("$.data.currentWaterLevelMeters").value((String) null))
+                .andExpect(jsonPath("$.data.observedAt").isNotEmpty());
+    }
+
+    @Test
     void oldLastObservationIsStaleAndHidden() throws Exception {
         mode.set("STALE");
         Long trailId = insertLinkedTrail();
@@ -169,7 +193,9 @@ class TrailStatusLiveApiTest {
                     exchange.close();
                     return;
                 }
-                String now = LocalDateTime.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                String now = LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+                        .minusMinutes("SAFETYDATA_STALE".equals(mode.get()) ? 40 : 0)
+                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                 String next = LocalDateTime.now(ZoneId.of("Asia/Seoul")).plusHours(1).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
                 String response = """
                         {"station":{"name":"월촌교","water_station_code":"1016607"},"data_source":"hrfco",
@@ -177,12 +203,16 @@ class TrailStatusLiveApiTest {
                          "forecast_1h":{"target_time":"%s","level_m":1.75,"trend":"falling","model_version":"test-model"},
                          "recovery":{"status":"predicted","eta_hours_at_least":4.0,"model_version":"recovery-v0.5"}}
                         """.formatted(now, next);
-                if ("PARTIAL".equals(mode.get())) {
+                if ("PARTIAL".equals(mode.get()) || "SAFETYDATA".equals(mode.get())
+                        || "SAFETYDATA_STALE".equals(mode.get())) {
                     response = """
                             {"station":{"name":"월촌교","water_station_code":"1016607"},"data_source":"hrfco",
                              "observed_at":"%s","water_level_m":1.2,"data_status":"partial",
                              "forecast_1h":null,"recovery":{"status":"below_threshold","model_version":"recovery-v0.5"}}
                             """.formatted(now);
+                    if (mode.get().startsWith("SAFETYDATA")) {
+                        response = response.replace("\"data_source\":\"hrfco\"", "\"data_source\":\"safetydata\"");
+                    }
                 } else if ("STALE".equals(mode.get())) {
                     response = """
                             {"station":{"name":"월촌교","water_station_code":"1016607"},"data_source":"hrfco",

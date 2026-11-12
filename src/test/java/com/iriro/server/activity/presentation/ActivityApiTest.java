@@ -81,6 +81,10 @@ class ActivityApiTest {
                 .andExpect(jsonPath("$.paths['/api/v1/activities'].post.responses['409']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/activities'].post.parameters[0].name").value("Idempotency-Key"))
                 .andExpect(jsonPath("$.paths['/api/v1/activities'].post.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/activities'].get.responses['200']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/activities/{activityId}'].get.responses['404']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/activities/stats/weekly'].get.responses['200']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/activities/stats/monthly'].get.responses['200']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/users/me'].delete.responses['204']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/users/me'].delete.security[0].bearerAuth").exists())
                 .andExpect(jsonPath("$.components.schemas.BadgeElementResponse.properties.earned").exists());

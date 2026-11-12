@@ -10,6 +10,7 @@ import com.iriro.server.notification.infrastructure.NotificationRepository;
 import java.util.Locale;
 import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.MemberRepository;
+import com.iriro.server.member.infrastructure.MemberProfilePhotoRepository;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.iriro.server.member.presentation.MyInfoResponse;
 import com.iriro.server.member.presentation.NicknameCheckResponse;
@@ -29,6 +30,8 @@ public class UserService {
     private final BadgeAwardRepository badgeAwardRepository;
     private final EmailCredentialRepository emailCredentialRepository;
     private final NotificationRepository notificationRepository;
+    private final MemberProfilePhotoRepository profilePhotos;
+    private final ProfilePhotoService profilePhotoService;
 
     /**
      * 내 프로필 정보 및 활동 요약 조회
@@ -54,7 +57,8 @@ public class UserService {
                 totalActivityCount,
                 totalDistanceMeters,
                 earnedBadgeCount,
-                unreadNotificationCount
+                unreadNotificationCount,
+                profilePhotoService.urlIfPresent(memberId)
         );
     }
 
@@ -84,7 +88,7 @@ public class UserService {
         }
 
         // 4. 응답 DTO 변환 및 반환
-        return UpdateProfileResponse.from(member);
+        return UpdateProfileResponse.from(member, profilePhotoService.urlIfPresent(memberId));
     }
 
     /**
@@ -105,6 +109,8 @@ public class UserService {
     public void withdraw(Long memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new CustomException(ErrorCode.UNAUTHORIZED_USER));
+        profilePhotos.deleteById(memberId);
+        profilePhotos.flush();
         memberRepository.delete(member);
         memberRepository.flush();
     }

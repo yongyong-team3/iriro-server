@@ -50,6 +50,7 @@ class FavoriteControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
+
     @MockitoBean
     private FavoriteService favoriteService;
 
@@ -75,7 +76,8 @@ class FavoriteControllerTest {
                 .trailId(100L)
                 .trailName("테스트 하천길")
                 .distanceMeters(new BigDecimal("1234.5"))
-                .geometry("{\"type\":\"LineString\"}")
+                .geometry(new FavoriteGeometry("LineString", List.of(
+                        List.of(new BigDecimal("127.2355"), new BigDecimal("37.3245")))))
                 .build();
         given(favoriteService.getFavorites(MEMBER_ID))
                 .willReturn(FavoriteListResponse.builder().favorites(List.of(item)).build());
@@ -90,7 +92,8 @@ class FavoriteControllerTest {
                 .andExpect(jsonPath("$.data.favorites[0].trailId").value(100))
                 .andExpect(jsonPath("$.data.favorites[0].trailName").value("테스트 하천길"))
                 .andExpect(jsonPath("$.data.favorites[0].distanceMeters").value(1234.5))
-                .andExpect(jsonPath("$.data.favorites[0].geometry").value("{\"type\":\"LineString\"}"));
+                .andExpect(jsonPath("$.data.favorites[0].geometry.type").value("LineString"))
+                .andExpect(jsonPath("$.data.favorites[0].geometry.coordinates[0][0]").value(127.2355));
     }
 
     @Test
