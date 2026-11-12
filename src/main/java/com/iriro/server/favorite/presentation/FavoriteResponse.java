@@ -15,5 +15,5 @@ public class FavoriteResponse {
     private Long trailId;
     private String trailName;
     private BigDecimal distanceMeters;
-    private String geometry;
+    private FavoriteGeometry geometry;
 }

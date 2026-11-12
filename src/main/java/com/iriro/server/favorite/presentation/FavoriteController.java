@@ -118,7 +118,7 @@ public class FavoriteController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "404",
-                    description = "즐겨찾기를 찾을 수 없음"
+                    description = "NOT_FOUND: 다른 회원의 즐겨찾기 ID"
             )
     })
     @DeleteMapping("/{favoriteId}")

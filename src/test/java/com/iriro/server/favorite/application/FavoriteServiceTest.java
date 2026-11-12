@@ -2,12 +2,14 @@ package com.iriro.server.favorite.application;
 
 import com.iriro.server.common.CustomException;
 import com.iriro.server.common.ErrorCode;
+import com.iriro.server.common.application.ApiException;
 import com.iriro.server.favorite.domain.Favorite;
 import com.iriro.server.favorite.infrastructure.FavoriteRepository;
 import com.iriro.server.favorite.presentation.FavoriteCreateRequest;
 import com.iriro.server.favorite.presentation.FavoriteCreateResponse;
 import com.iriro.server.favorite.presentation.FavoriteListResponse;
 import com.iriro.server.favorite.presentation.FavoriteResponse;
+import com.iriro.server.favorite.presentation.FavoriteGeometry;
 import com.iriro.server.member.domain.Member;
 import com.iriro.server.member.infrastructure.MemberRepository;
 import com.iriro.server.trail.domain.Route;
@@ -22,6 +24,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -47,6 +50,8 @@ class FavoriteServiceTest {
     private RouteRepository routeRepository;
     @Mock
     private TrailRepository trailRepository;
+    @Mock
+    private ObjectMapper objectMapper;
 
     @InjectMocks
     private FavoriteService favoriteService;
@@ -115,7 +120,10 @@ class FavoriteServiceTest {
             given(route.getTrailId()).willReturn(TRAIL_ID);
             given(route.getName()).willReturn("테스트 코스");
             given(route.getDistanceMeters()).willReturn(new BigDecimal("1234.5"));
-            given(route.getGeometryGeojson()).willReturn("{\"type\":\"LineString\"}");
+            given(route.getGeometryGeojson()).willReturn("{\"type\":\"LineString\",\"coordinates\":[[127.2355,37.3245]]}");
+            given(objectMapper.readValue(route.getGeometryGeojson(), FavoriteGeometry.class))
+                    .willReturn(new FavoriteGeometry("LineString", List.of(
+                            List.of(new BigDecimal("127.2355"), new BigDecimal("37.3245")))));
 
             Trail trail = mock(Trail.class);
             given(trail.getId()).willReturn(TRAIL_ID);
@@ -139,7 +147,7 @@ class FavoriteServiceTest {
             assertThat(item.getTrailId()).isEqualTo(TRAIL_ID);
             assertThat(item.getTrailName()).isEqualTo("테스트 하천길");
             assertThat(item.getDistanceMeters()).isEqualByComparingTo("1234.5");
-            assertThat(item.getGeometry()).isEqualTo("{\"type\":\"LineString\"}");
+            assertThat(item.getGeometry().type()).isEqualTo("LineString");
         }
 
         @Test
@@ -292,7 +300,7 @@ class FavoriteServiceTest {
         }
 
         @Test
-        @DisplayName("다른 회원의 즐겨찾기면 FAVORITE_NOT_FOUND 예외")
+        @DisplayName("다른 회원의 즐겨찾기면 명세의 NOT_FOUND 오류")
         void otherMembersFavorite() {
             given(memberRepository.existsById(MEMBER_ID)).willReturn(true);
             given(favoriteRepository.findByIdAndMemberId(FAVORITE_ID, MEMBER_ID))
@@ -300,7 +308,8 @@ class FavoriteServiceTest {
             given(favoriteRepository.existsById(FAVORITE_ID)).willReturn(true);
 
             assertThatThrownBy(() -> favoriteService.deleteFavorite(MEMBER_ID, FAVORITE_ID))
-                    .satisfies(t -> assertErrorCode(t, ErrorCode.FAVORITE_NOT_FOUND));
+                    .isInstanceOf(ApiException.class)
+                    .extracting("code").isEqualTo("NOT_FOUND");
 
             verify(favoriteRepository, never()).delete(any());
         }
