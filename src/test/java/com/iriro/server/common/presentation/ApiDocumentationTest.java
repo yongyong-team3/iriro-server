@@ -94,4 +94,18 @@ class ApiDocumentationTest {
                 .andExpect(jsonPath("$.components.schemas.DeviceResponse.properties.installationId").doesNotExist())
                 .andExpect(jsonPath("$.paths['/api/v1/devices/{deviceId}'].delete.responses['204'].content").doesNotExist());
     }
+
+    @Test
+    void favoriteBadgeAndWeatherContractsExposeTheirDeclaredErrorsAndGeoJson() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.components.schemas.FavoriteResponse.properties.geometry.\u0024ref")
+                        .value("#/components/schemas/FavoriteGeometry"))
+                .andExpect(jsonPath("$.components.schemas.FavoriteGeometry.properties.type.type").value("string"))
+                .andExpect(jsonPath("$.components.schemas.FavoriteGeometry.properties.coordinates.type").value("array"))
+                .andExpect(jsonPath("$.paths['/api/v1/favorites/{favoriteId}'].delete.responses['404'].description")
+                        .value("NOT_FOUND: 다른 회원의 즐겨찾기 ID"))
+                .andExpect(jsonPath("$.paths['/api/v1/badges'].get.responses['401']").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/weather/current'].get.responses['400']").exists());
+    }
 }
