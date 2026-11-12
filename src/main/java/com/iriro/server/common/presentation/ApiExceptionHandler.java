@@ -1,5 +1,6 @@
 package com.iriro.server.common.presentation;
 
+import com.iriro.server.common.ErrorResponse;
 import com.iriro.server.common.application.ApiException;
 import com.iriro.server.common.CustomException;
 import com.iriro.server.common.ErrorCode;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -82,5 +84,11 @@ public class ApiExceptionHandler {
         log.error("Unhandled request failure type={}", exception.getClass().getName());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiErrorResponse("INTERNAL_SERVER_ERROR", "요청을 처리하지 못했습니다.", null));
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ApiErrorResponse> handleMissingHeader(MissingRequestHeaderException exception) {
+        return ResponseEntity.badRequest()
+                .body(new ApiErrorResponse("INVALID_REQUEST", "요청 정보를 확인해 주세요.", null));
     }
 }

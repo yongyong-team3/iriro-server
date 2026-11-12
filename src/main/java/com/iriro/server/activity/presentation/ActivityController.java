@@ -1,6 +1,7 @@
 package com.iriro.server.activity.presentation;
 
 
+import com.iriro.server.activity.application.ActivityCreateFacade;
 import com.iriro.server.activity.application.ActivityService;
 import com.iriro.server.auth.application.CurrentMemberProvider;
 import com.iriro.server.common.ApiResponse;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class ActivityController {
 
     private final ActivityService activityService;
+    private final ActivityCreateFacade activityCreateFacade;
     private final CurrentMemberProvider currentMemberProvider;
 
     @Operation(
@@ -37,7 +39,7 @@ public class ActivityController {
         Long currentMemberId = currentMemberProvider.requireMemberId();
 
         ActivityCreateResponse responseData =
-                activityService.createActivity(
+                activityCreateFacade.createActivity(
                         currentMemberId,
                         idempotencyKey,
                         request

@@ -14,6 +14,7 @@ import com.iriro.server.common.CustomException;
 import com.iriro.server.common.ErrorCode;
 import com.iriro.server.favorite.application.FavoriteService;
 import com.iriro.server.member.infrastructure.MemberRepository;
+import com.iriro.server.trail.domain.Route;
 import com.iriro.server.trail.infrastructure.RouteRepository;
 import com.iriro.server.trail.infrastructure.RouteStartPointRepository;
 import lombok.RequiredArgsConstructor;
@@ -62,8 +63,13 @@ public class ActivityService {
         validateRequest(request);
 
         // 3. 코스 확인
-        if (!routeRepository.existsById(request.getRouteId())) {
-            throw new CustomException(ErrorCode.ROUTE_NOT_FOUND);
+        Route route = routeRepository.findById(request.getRouteId())
+                .orElseThrow(() -> new CustomException(ErrorCode.ROUTE_NOT_FOUND));
+
+        // 3-1. 코스가 지원하는 활동 유형인지 확인
+        // (DB 의 fk_activity_type 위반이 500 으로 올라가지 않도록 먼저 400 으로 거른다)
+        if (!route.getActivityTypes().contains(request.getActivityType())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST);
         }
 
         // 4. 출발점 및 코스 소속 여부 확인
@@ -155,6 +161,40 @@ public class ActivityService {
                 favoriteAdded,
                 simulated
         );
+    }
+
+    /**
+     * 같은 Idempotency-Key 로 이미 저장된 활동이 있으면 그 결과를 반환한다.
+     *
+     * 동시에 같은 키로 요청이 들어와 한쪽이 유니크 제약 위반으로 실패했을 때,
+     * ActivityCreateFacade 가 (실패한 트랜잭션이 끝난 뒤) 새 트랜잭션에서 호출한다.
+     *
+     * @return 기존 활동이 없으면 empty
+     * @throws CustomException 같은 키에 다른 요청 내용이면 IDEMPOTENCY_CONFLICT
+     */
+    public Optional<ActivityCreateResponse> findExistingResult(
+            Long memberId,
+            String idempotencyKey,
+            ActivityCreateRequest request
+    ) {
+
+        boolean simulated = Boolean.TRUE.equals(request.getSimulated());
+        String requestHash = hashGenerator.generate(request, simulated);
+
+        return activityRepository
+                .findByMemberIdAndIdempotencyKey(memberId, idempotencyKey)
+                .map(existing -> {
+
+                    if (!existing.getRequestHash().equals(requestHash)) {
+                        throw new CustomException(ErrorCode.IDEMPOTENCY_CONFLICT);
+                    }
+
+                    return createResponse(
+                            existing.getId(),
+                            false,
+                            existing.isSimulated()
+                    );
+                });
     }
 
     /**
@@ -764,6 +804,12 @@ public class ActivityService {
         long currentStreakDays = 0;
 
         LocalDate checkDate = streakEndDate;
+
+        // 진행 중인 오늘은 아직 기록이 없어도 연속이 끊긴 것으로 보지 않는다.
+        // 오늘 기록이 없으면 어제부터 거꾸로 센다.
+        if (streakEndDate.equals(today) && !activityDateSet.contains(checkDate)) {
+            checkDate = checkDate.minusDays(1);
+        }
 
         while (activityDateSet.contains(checkDate)) {
 
