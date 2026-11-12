@@ -13,6 +13,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MissingRequestHeaderException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -76,6 +77,12 @@ public class ApiExceptionHandler {
     ) {
         return ResponseEntity.badRequest()
                 .body(new ApiErrorResponse("INVALID_REQUEST", "요청 정보를 확인해 주세요.", null));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleOversizedUpload(MaxUploadSizeExceededException exception) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ApiErrorResponse("PAYLOAD_TOO_LARGE", "업로드 가능한 파일 크기를 초과했습니다.", null));
     }
 
     private ResponseEntity<ApiErrorResponse> validationError() {

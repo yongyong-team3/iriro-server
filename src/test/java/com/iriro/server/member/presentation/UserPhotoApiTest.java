@@ -155,6 +155,7 @@ class UserPhotoApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.paths['/api/v1/users/me/photo'].post.requestBody.content['multipart/form-data']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/users/me/photo'].post.security[0].bearerAuth").exists())
+                .andExpect(jsonPath("$.paths['/api/v1/users/me/photo'].post.responses['413']").exists())
                 .andExpect(jsonPath("$.paths['/api/v1/users/me/photo'].delete.responses['204']").exists());
     }
 
