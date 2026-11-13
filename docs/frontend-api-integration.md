@@ -1,6 +1,6 @@
 # 이리로 프론트 전체 API 연동 가이드
 
-기준: 이 저장소의 현재 백엔드 구현, 2026-11-12. Expo/React Native 앱에서 바로 연결할 수 있도록 **주소 외에 필요한 요청 형식, 응답 필드, 호출 순서, 예외 처리**를 정리했다. 경로와 필드는 백엔드 코드 기준이며, 예시 값은 실제 서버 데이터가 아니다.
+기준: 이 저장소의 현재 백엔드 구현, 2026-11-13. Expo/React Native 앱에서 바로 연결할 수 있도록 **주소 외에 필요한 요청 형식, 응답 필드, 호출 순서, 예외 처리**를 정리했다. 경로와 필드는 백엔드 코드 기준이며, 예시 값은 실제 서버 데이터가 아니다.
 
 ## 1. 연동 시작 전 5가지
 
@@ -61,7 +61,9 @@ async function api<T>(
 | --- | --- | --- | --- | --- |
 | 이메일 가입 | `POST /auth/signup` | 공개 | 201 | `data.memberId` |
 | 이메일 로그인 | `POST /auth/email/login` | 공개 | 200 | `data.accessToken`, `refreshToken`, `member` |
-| 카카오·네이버 로그인 | `POST /auth/login` | 공개 | 200 | 위와 같음 |
+| 카카오·네이버 OAuth 시작 | `GET /auth/oauth/{provider}/authorize` | 공개 | 302 | 제공자 로그인 화면 |
+| 카카오·네이버 OAuth 교환 | `POST /auth/oauth/exchange` | 공개 | 200 | 이메일 로그인과 같은 `data` |
+| 기존 카카오·네이버 로그인 | `POST /auth/login` | 공개 | 200 | 제공자 access token 방식 유지 |
 | 토큰 재발급 | `POST /auth/reissue` | 공개 | 200 | 새 토큰 2개 |
 | 로그아웃 | `POST /auth/logout` | 공개 | 204 | 본문 없음 |
 | 하천길 목록 | `GET /trails` | 공개 | 200 | `data.trails` |
@@ -116,7 +118,23 @@ Content-Type: application/json
 {"email":"user@example.com","password":"abc12345"}
 ```
 
-카카오·네이버는 앱에서 제공자 **access token**을 받은 뒤 다음처럼 보낸다. 제공자 SDK 로그인 자체는 프론트가 수행한다.
+Expo Go의 카카오·네이버 로그인은 서버 OAuth 흐름을 사용한다.
+
+1. 앱 복귀 주소를 준비한다. 예: `exp://192.168.0.10:8081/--/oauth` 또는 `cheonbyeon://oauth/callback`. 서버에 설정된 `OAUTH_ALLOWED_REDIRECT_PREFIXES`의 접두어로 시작해야 한다.
+2. 시스템 브라우저에서 `GET {EXPO_PUBLIC_API_BASE_URL}/auth/oauth/kakao/authorize?redirectUri=<URL 인코딩한 앱 복귀 주소>`를 연다. 네이버는 `kakao` 대신 `naver`를 쓴다. 이 엔드포인트는 제공자 로그인 화면으로 302 이동한다.
+3. 제공자가 서버의 HTTPS 콜백으로 돌려보내면 서버가 인가 코드를 교환하고, 앱 복귀 주소로 `?loginCode=<1회용 코드>` 또는 `?error=<오류 코드>`를 붙여 302 이동한다. 기존 쿼리가 있으면 `&`로 붙는다. `state`가 잘못됐거나 만료된 경우 안전한 앱 복귀 주소를 식별할 수 없어 HTTP 400을 반환한다.
+4. 앱은 `loginCode`를 받은 즉시 다음 요청을 **한 번만** 보낸다. 코드는 60초 후 만료되고 재사용할 수 없다. 성공 `data`는 이메일 로그인과 같은 구조다. `error`가 오면 교환 API를 호출하지 않고 로그인 오류를 표시한다.
+
+```http
+POST /auth/oauth/exchange
+Content-Type: application/json
+
+{"loginCode":"<앱 복귀 URL의 loginCode>"}
+```
+
+`401 INVALID_LOGIN_CODE`면 처음부터 로그인을 다시 시작한다. 제공자 access token, 카카오·네이버 client secret, 우리 JWT는 앱 복귀 URL에 포함되지 않는다. 제공자 앱 키도 프론트 환경변수에 넣지 않는다.
+
+기존 `POST /auth/login`은 제공자 access token을 이미 가진 클라이언트를 위해 그대로 유지한다. Expo Go 흐름에서는 사용하지 않는다.
 
 ```http
 POST /auth/login
@@ -137,6 +155,11 @@ Content-Type: application/json
 ```
 
 TTL 숫자는 **예시**이며 서버 설정값을 사용한다. `requiresNicknameSetup`이 참이면 프로필 닉네임 설정 화면으로 보낸다. 이메일·소셜 로그인 모두 `member.memberId`를 사용자 ID로 쓴다.
+
+서버 배포 담당자는 `OAUTH_CALLBACK_BASE_URL=https://port-0-iriro-server-mwdjk6is6e6c1b09.sel3.cloudtype.app`와 `KAKAO_REST_API_KEY`, 필요 시 `KAKAO_CLIENT_SECRET`, `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`을 **백엔드 환경변수**로 설정한다. `OAUTH_ALLOWED_REDIRECT_PREFIXES` 기본값은 `exp://,cheonbyeon://`다. 제공자 콘솔에 아래 HTTPS 콜백을 정확히 등록한다. 배포 호스트가 바뀌면 이 값과 콘솔 등록 주소를 함께 바꾼다.
+
+- `https://port-0-iriro-server-mwdjk6is6e6c1b09.sel3.cloudtype.app/api/v1/auth/oauth/kakao/callback`
+- `https://port-0-iriro-server-mwdjk6is6e6c1b09.sel3.cloudtype.app/api/v1/auth/oauth/naver/callback`
 
 ### 토큰 재발급·로그아웃
 
@@ -344,7 +367,8 @@ Expo 푸시 토큰을 발급받은 뒤:
 | --- | --- |
 | 400 / `INVALID_REQUEST`, `INVALID_START_POINT` | 입력/좌표/날짜/출발점 확인. API가 보낸 `message` 표시 가능. |
 | 401 / `UNAUTHORIZED`, `INVALID_TOKEN`, `TOKEN_EXPIRED` | refresh token으로 재발급 후 원 요청 한 번 재시도. 실패 시 로그인. |
-| 401 / `INVALID_CREDENTIALS`, `INVALID_PROVIDER_TOKEN`, `INVALID_REFRESH_TOKEN`, `EXPIRED_REFRESH_TOKEN` | 로그인 입력/제공자 토큰 확인 또는 재로그인. |
+| 401 / `INVALID_CREDENTIALS`, `INVALID_PROVIDER_TOKEN`, `INVALID_REFRESH_TOKEN`, `EXPIRED_REFRESH_TOKEN`, `INVALID_LOGIN_CODE` | 로그인 입력/제공자 토큰 확인 또는 재로그인. `INVALID_LOGIN_CODE`면 OAuth 시작부터 다시 진행. |
+| 400 / `INVALID_REDIRECT_URI`, `INVALID_OAUTH_STATE` | 앱 복귀 주소 설정 또는 OAuth state를 확인하고 로그인 시작부터 다시 진행. |
 | 404 / `TRAIL_NOT_FOUND`, `ROUTE_NOT_FOUND`, `ACTIVITY_NOT_FOUND`, `NOTIFICATION_NOT_FOUND`, `HISTORICAL_SNAPSHOT_NOT_FOUND`, `PROFILE_PHOTO_NOT_FOUND`, `NOT_FOUND` | 목록 새로고침 또는 해당 화면의 빈/없음 상태 표시. |
 | 409 / `DUPLICATE_EMAIL`, `DUPLICATE_MEMBER_NAME`, `IDEMPOTENCY_CONFLICT` | 중복 입력 안내 또는 활동 저장 키/본문 확인. |
 | 413 / `PAYLOAD_TOO_LARGE` | 사진 크기 줄이기. |

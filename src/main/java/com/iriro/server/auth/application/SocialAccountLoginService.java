@@ -36,16 +36,30 @@ public class SocialAccountLoginService {
 
     @Transactional
     public SocialLoginResponse login(SocialProvider provider, String providerUserId) {
+        PreparedLogin prepared = prepare(provider, providerUserId);
+        return complete(prepared);
+    }
+
+    @Transactional
+    public PreparedLogin prepare(SocialProvider provider, String providerUserId) {
         var existing = socialAccountRepository.findByProviderAndProviderUserId(provider, providerUserId);
         SocialAccount socialAccount = existing.orElseGet(() -> createSocialAccount(provider, providerUserId));
-        Member member = socialAccount.getMember();
+        return new PreparedLogin(socialAccount.getMember().getId(), existing.isEmpty());
+    }
+
+    @Transactional
+    public SocialLoginResponse complete(PreparedLogin prepared) {
+        Member member = memberRepository.findById(prepared.memberId()).orElseThrow(() ->
+                new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_LOGIN_CODE", "로그인 코드를 확인해 주세요."));
         AuthTokenResponse tokens = tokenSessionService.issueTokens(member);
         return new SocialLoginResponse(tokens.accessToken(), tokens.refreshToken(), tokens.tokenType(),
-                tokens.accessTokenExpiresInSeconds(), tokens.refreshTokenExpiresInSeconds(), existing.isEmpty(),
+                tokens.accessTokenExpiresInSeconds(), tokens.refreshTokenExpiresInSeconds(), prepared.isNewMember(),
                 member.getMemberName() == null,
                 new SocialLoginResponse.MemberInfo(member.getId(), member.getMemberName(),
                         profilePhotoService.urlIfPresent(member.getId())));
     }
+
+    public record PreparedLogin(Long memberId, boolean isNewMember) { }
 
     private SocialAccount createSocialAccount(SocialProvider provider, String providerUserId) {
         // No email/nickname matching: a provider identity creates its own member unless already linked.

@@ -65,6 +65,24 @@ CREATE TABLE social_accounts (
         REFERENCES members (id) ON DELETE CASCADE
 );
 
+CREATE TABLE oauth_states (
+    state_hash CHAR(64) NOT NULL PRIMARY KEY,
+    provider VARCHAR(16) NOT NULL,
+    redirect_uri VARCHAR(2048) NOT NULL,
+    expires_at DATETIME(6) NOT NULL,
+    consumed_at DATETIME(6) NULL
+);
+
+CREATE TABLE oauth_login_codes (
+    code_hash CHAR(64) NOT NULL PRIMARY KEY,
+    member_id BIGINT NOT NULL,
+    is_new_member BOOLEAN NOT NULL,
+    expires_at DATETIME(6) NOT NULL,
+    consumed_at DATETIME(6) NULL,
+    CONSTRAINT fk_oauth_login_member FOREIGN KEY (member_id)
+        REFERENCES members (id) ON DELETE CASCADE
+);
+
 CREATE TABLE recovery_events (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     trail_id BIGINT NOT NULL,

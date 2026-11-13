@@ -7,11 +7,13 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
-@RestControllerAdvice(assignableTypes = {EmailAuthController.class, SocialAuthController.class})
+@RestControllerAdvice(assignableTypes = {EmailAuthController.class, SocialAuthController.class,
+        OAuthFlowController.class})
 public class AuthExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
@@ -21,7 +23,7 @@ public class AuthExceptionHandler {
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
-            ConstraintViolationException.class})
+            ConstraintViolationException.class, MissingServletRequestParameterException.class})
     public ResponseEntity<AuthErrorResponse> invalidRequest(Exception exception) {
         return ResponseEntity.badRequest()
                 .body(new AuthErrorResponse("INVALID_REQUEST", "요청 정보를 확인해 주세요.", null));

@@ -27,6 +27,10 @@ public class SocialAuthService {
     }
 
     public SocialLoginResponse login(SocialProvider provider, String accessToken) {
+        return socialAccountLoginService.login(provider, verifiedUserId(provider, accessToken));
+    }
+
+    public String verifiedUserId(SocialProvider provider, String accessToken) {
         SocialProviderClient.SocialUserInfo user = switch (provider) {
             case KAKAO -> kakaoClient.verifyAndGetUser(accessToken);
             case NAVER -> naverClient.verifyAndGetUser(accessToken);
@@ -34,6 +38,6 @@ public class SocialAuthService {
         if (user == null || user.providerUserId() == null || user.providerUserId().isBlank()) {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PROVIDER_UNAVAILABLE", "소셜 로그인 서비스를 사용할 수 없습니다.");
         }
-        return socialAccountLoginService.login(provider, user.providerUserId());
+        return user.providerUserId();
     }
 }
